@@ -1,6 +1,6 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <pch.h>
+#include <Engine/pch.h>
 #include <Engine/render/PC/Data.h>
 
 struct ShaderParameter;
@@ -51,6 +51,8 @@ private:
     constexpr static char DEFAULT_ENTRY_POINT[] = "main";
     constexpr static char DEFAULT_SHADER_MODEL[] = "6_0";
     constexpr static char SHADER_TYPE_STR[] = "vs_hs_ds_gs_ps_";
+
+    static std::vector<String> sShaderIncludes;     // TODO: load includes path
 
     ID3DBlob* mBinary;
     ShaderType mType;

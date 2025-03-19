@@ -1,11 +1,12 @@
 ﻿#pragma once
-#include "pch.h"
-
 #ifdef WIN32
-class IFrame
+#include <Engine/pch.h>
+
+// frame interface
+class Frame
 {
 public:
-    static IFrame* CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen = false);
+    static Frame* CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen = false);
     
     const String& Title() const;
     uint16_t Width() const;
@@ -18,15 +19,17 @@ public:
     virtual void SetFullScreenMode(bool isFullScreen);
     virtual void Close();
 
-    IFrame();
-    IFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen);
-    IFrame(IFrame&& other) noexcept;
-    virtual ~IFrame();
-    DELETE_COPY_CONSTRUCTOR(IFrame)
-    DELETE_COPY_OPERATOR(IFrame)
-    IFrame& operator=(IFrame&& other) noexcept;
+
+    virtual ~Frame();
+    DELETE_COPY_CONSTRUCTOR(Frame)
+    DELETE_COPY_OPERATOR(Frame)
+    Frame& operator=(Frame&& other) noexcept;
     
 protected:
+    Frame();
+    Frame(const String& title, uint16_t width, uint16_t height, bool isFullScreen);
+    Frame(Frame&& other) noexcept;
+    
     constexpr static uint16_t DEFAULT_FRAME_WIDTH = 1280;
     constexpr static uint16_t DEFAULT_FRAME_HEIGHT = 720;
     constexpr static TCHAR DEFAULT_FRAME_TITLE[] = TEXT("Frame");
@@ -38,4 +41,6 @@ private:
     bool mIsFullScreen;
     bool mIsClosed;
 };
+
+Frame& gFrame();
 #endif

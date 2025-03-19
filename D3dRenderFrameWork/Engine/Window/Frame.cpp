@@ -1,63 +1,62 @@
-﻿
-#ifdef WIN32
+﻿#ifdef WIN32
 #include "Frame.h"
 
-const String& IFrame::Title() const
+const String& Frame::Title() const
 {
     return mTitle;
 }
 
-uint16_t IFrame::Width() const
+uint16_t Frame::Width() const
 {
     return mFrameWidth;
 }
 
-uint16_t IFrame::Height() const
+uint16_t Frame::Height() const
 {
     return mFrameHeight;
 }
 
-bool IFrame::IsFullScreen() const
+bool Frame::IsFullScreen() const
 {
     return mIsFullScreen;
 }
 
-void IFrame::SetFrameSize(uint16_t width, uint16_t height)
+void Frame::SetFrameSize(uint16_t width, uint16_t height)
 {
     this->mFrameWidth = width;
     this->mFrameHeight = height;
 }
 
-bool IFrame::IsClosed() const
+bool Frame::IsClosed() const
 {
     return mIsClosed;
 }
 
-void IFrame::Close()
+void Frame::Close()
 {
     mIsClosed = true;
 }
 
-void IFrame::SetFullScreenMode(bool isFullScreen)
+void Frame::SetFullScreenMode(bool isFullScreen)
 {
     mIsFullScreen = isFullScreen;
 }
 
-IFrame::IFrame() :
+Frame::Frame() :
     mTitle(DEFAULT_FRAME_TITLE),
     mFrameWidth(DEFAULT_FRAME_WIDTH),
     mFrameHeight(DEFAULT_FRAME_HEIGHT),
     mIsFullScreen(false),
     mIsClosed(false) { }
 
-IFrame::IFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen = false) :
+Frame::Frame(const String& title, uint16_t width, uint16_t height, bool isFullScreen = false) :
     mTitle(title),
     mFrameWidth(DEFAULT_FRAME_WIDTH),
     mFrameHeight(DEFAULT_FRAME_HEIGHT),
     mIsFullScreen(isFullScreen),
     mIsClosed(false) { }
 
-IFrame::IFrame(IFrame&& other)  noexcept :
+Frame::Frame(Frame&& other)  noexcept :
     mTitle(std::move(other.mTitle)),
     mFrameWidth(DEFAULT_FRAME_WIDTH),
     mFrameHeight(DEFAULT_FRAME_HEIGHT),
@@ -67,9 +66,9 @@ IFrame::IFrame(IFrame&& other)  noexcept :
     other.mIsClosed = true;
 }
 
-IFrame::~IFrame() = default;
+Frame::~Frame() = default;
 
-IFrame& IFrame::operator=(IFrame&& other) noexcept
+Frame& Frame::operator=(Frame&& other) noexcept
 {
     mTitle = std::move(other.mTitle);
     mFrameWidth = other.mFrameWidth;

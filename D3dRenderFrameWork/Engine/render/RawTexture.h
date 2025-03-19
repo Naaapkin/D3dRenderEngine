@@ -1,6 +1,6 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <pch.h>
+#include <Engine/pch.h>
 #include <Engine/render/Texture.h>
 
 class RawTexture : public Texture
@@ -9,8 +9,8 @@ public:
     void SetData(const byte* data) const;
     void SetSubData(uint8_t mip, const byte* subData) const;
 
-    byte* DataPtr() const override;
-    byte* SubDatePtr(uint8_t mip, uint32_t x, uint32_t y, uint32_t z) const override;
+    const byte* dataPtr() const override;
+    const byte* subDatePtr(uint8_t mip) const override;
     
     RawTexture(TextureType type, uint64_t width, uint64_t height, uint32_t depth,
             TextureFormat format, const byte* data = nullptr,

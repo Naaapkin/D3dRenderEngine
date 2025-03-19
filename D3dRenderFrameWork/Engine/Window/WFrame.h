@@ -22,8 +22,11 @@ private:
     String mName;
 };
 
-class WFrame : public IFrame
+class WFrame : public Frame
 {
+    friend Frame& gFrame();
+    friend Frame* Frame::CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen);
+    
 public:
     HWND WindowHandle() const;
     float DPIScalar() const;
@@ -33,10 +36,7 @@ public:
     void SetFrameSize(uint16_t width, uint16_t height) override;
     void SetFullScreenMode(bool isFullScreen) override;
     void Close() override;
-
-    WFrame();
-    WFrame(WFrame&& other) noexcept;
-    WFrame(const String& title, uint16_t width, uint16_t height, bool mode);
+    
     ~WFrame() override;
     
     DELETE_COPY_CONSTRUCTOR(WFrame);
@@ -46,6 +46,9 @@ public:
 
 private:
     void InitializeWinFrame();
+    WFrame();
+    WFrame(WFrame&& other) noexcept;
+    WFrame(const String& title, uint16_t width, uint16_t height, bool mode);
 
     WindowClass* mWindowClassPtr;
     HWND mWindowHandle;

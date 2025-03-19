@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "pch.h"
-
+#ifdef WIN32
+#include <Engine/pch.h>
 namespace WFunc
 {
     void QueryPrimaryScreenRC(RECT* rect);
@@ -9,3 +9,4 @@ namespace WFunc
     std::wstring GetKeyName(UINT key);
     bool SafeShutdown(HWND hWnd);
 }
+#endif

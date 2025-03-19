@@ -1,4 +1,4 @@
-﻿#include <render/Texture.h>
+﻿#include <Engine/render/Texture.h>
 
 TextureType Texture::Type() const
 {
@@ -46,17 +46,18 @@ Texture::Texture(TextureType type, uint64_t width, uint64_t height, uint32_t dep
     mWidth(width), mHeight(height), mDepth(depth),
     mSampleCount(sampleCount), mSampleQuality(sampleQuality) { }
 
-Texture::Texture(const Texture& o) noexcept
-{
-    mType = o.mType;
-    mFormat = o.mFormat;
-    mWidth = o.mWidth;
-    mHeight = o.mHeight;
-    mDepth = o.mDepth;
-    mNumMips = o.mNumMips;
-    mSampleCount = o.mSampleCount;
-    mSampleQuality = o.mSampleQuality;
-}
+Texture::Texture(const Texture& o) noexcept = default;
+
+Texture::Texture(TextureType type, const D3D12_RESOURCE_DESC& desc) :
+        mType(type), mFormat(static_cast<TextureFormat>(desc.Format)), mNumMips(static_cast<uint8_t>(desc.MipLevels)), mWidth(desc.Width),
+        mHeight(desc.Height), mDepth(desc.DepthOrArraySize),
+        mSampleCount(static_cast<uint8_t>(desc.SampleDesc.Count)), mSampleQuality(static_cast<uint8_t>(desc.SampleDesc.Quality)) { }
+
+Texture::Texture() :
+    mType(), mFormat(),
+    mNumMips(), mWidth(), mHeight(),
+    mDepth(), mSampleCount(),
+    mSampleQuality() { }
 
 Texture::~Texture() = default;
 

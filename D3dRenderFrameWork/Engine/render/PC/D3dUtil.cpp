@@ -1,5 +1,5 @@
 ﻿#ifdef WIN32
-#include <Engine/common/PC/WException.h>
+#include <Engine/common/Exception.h>
 #include <Engine/common/PC/WFunc.h>
 #include <Engine/render/PC/D3dUtil.h>
 

@@ -1,7 +1,7 @@
 ﻿#ifdef WIN32
-#include "DescriptorHeap.h"
-#include "D3dGraphicContext.h"
-#include "../../common/PC/WException.h"
+#include <Engine/render/PC/Core/DescriptorHeap.h>
+#include <Engine/render/PC/Core/D3dGraphicContext.h>
+#include <Engine/common/Exception.h>
 
 ID3D12Device* D3dGraphicContext::DeviceHandle() const
 {

@@ -1,21 +1,15 @@
 ﻿#ifdef WIN32
-#include "render/RawTexture.h"
-#include "common/PC/WException.h"
+#include <Engine/render/RawTexture.h>
+#include <Engine/common/Exception.h>
 
-const byte* RawTexture::DataPtr() const
+const byte* RawTexture::dataPtr() const
 {
     return mData;
 }
 
-const byte* RawTexture::SubDatePtr(uint8_t mip, uint32_t x, uint32_t y, uint32_t z) const
+const byte* RawTexture::subDatePtr(uint8_t mip) const
 {
-#ifdef DEBUG || _DEBUG
-    ASSERT(x < Width() && y < Height() && z < Depth(), TEXT("index out of bound"));
-#endif
-    byte* data = mData + GetMip(mip);
-    uint64_t width = Width() << mip;
-    uint64_t height = Height() << mip;
-    return data + (width * height * z + x + y);
+    return mData + GetMip(mip);
 }
 
 void RawTexture::SetData(const byte* data) const
@@ -36,7 +30,7 @@ void RawTexture::SetSubData(uint8_t mip, const byte* subData) const
 RawTexture::RawTexture(TextureType type,
     uint64_t width, uint64_t height, uint32_t depth, TextureFormat format,
     const byte* data, uint8_t numMips, uint8_t sampleCount, uint8_t sampleQuality) :
-    Texture(type, width, height, depth, format, numMips, sampleCount, sampleQuality), 
+    Texture(type, width, height, depth, format, numMips, sampleCount, sampleQuality) 
 {
     uint64_t size = GetMip(numMips);
     mData = new byte[size];

@@ -1,6 +1,6 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <pch.h>
+#include <Engine/pch.h>
 #include <Engine/render/PC/D3dRenderer.h>
 
 class D3dGraphicContext
