@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <pch.h>
+#include <Engine/pch.h>
 
 #ifdef WIN32
 struct Viewport
@@ -43,13 +43,12 @@ struct alignas(256) Constant
     T* operator->() { return value.operator->(); }
 };
 
-struct PassConstants
+struct LightConstants
 {
     // light info
-};
-
-struct ObjectConstants
-{
-    // mvp matrices
+    DirectX::XMVECTOR mLightDirection;
+    DirectX::XMVECTOR mLightIntensity;
+    DirectX::XMVECTOR mLightColor;
+    DirectX::XMVECTOR mAmbientColor;
 };
 #endif

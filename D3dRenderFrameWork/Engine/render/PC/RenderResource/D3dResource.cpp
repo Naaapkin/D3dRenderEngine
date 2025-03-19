@@ -1,6 +1,6 @@
 #ifdef WIN32
 #include <Engine/render/PC/RenderResource/D3dResource.h>
-#include <Engine/common/PC/WException.h>
+#include <Engine/common/Exception.h>
 
 ID3D12Resource* D3dResource::NativePtr() const
 {
@@ -24,7 +24,7 @@ GUID D3dResource::GetGuid() const
     return guid;
 }
 
-void D3dResource::Release()
+void D3dResource::release()
 {
     mResource.Reset();
     delete[] mResourceStates;
@@ -33,7 +33,7 @@ void D3dResource::Release()
 
 D3dResource::~D3dResource()
 {
-    D3dResource::Release();
+    D3dResource::release();
 }
 
 D3dResource::D3dResource(ID3D12Resource* pResource, 
@@ -43,9 +43,10 @@ D3dResource::D3dResource(ID3D12Resource* pResource,
 		mSubResourceCount(subResourceCount),
 		mResourceStates(resourceStates) { }
 
-D3dResource CreateD3dResource(ID3D12Device* pDevice, D3D12_HEAP_FLAGS heapFlags, const D3D12_HEAP_PROPERTIES& heapProp,
+D3dResource gCreateD3dResource(ID3D12Device* pDevice, D3D12_HEAP_FLAGS heapFlags, const D3D12_HEAP_PROPERTIES& heapProp,
                               const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState)
 {
+    if (!pDevice) return { nullptr, 0, nullptr };
     uint64_t subResourceCount = static_cast<uint64_t>(desc.MipLevels) * desc.DepthOrArraySize * D3D12GetFormatPlaneCount(pDevice, desc.Format);
     ID3D12Resource* pBuffer = nullptr;
     ThrowIfFailed(pDevice->CreateCommittedResource(

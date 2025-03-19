@@ -1,12 +1,12 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <pch.h>
+#include <Engine/pch.h>
 #include <Engine/render/PC/D3dRenderer.h>
-#include <Engine/render/PC/RenderResource/UploadHeap.h>
+#include <Engine/render/PC/RenderResource/DynamicBuffer.h>
 
 struct RenderContext;
 class D3dCommandQueue;
-class DefaultHeap;
+class StaticBuffer;
 class D3dGraphicContext;
 
 struct Fence
@@ -43,7 +43,7 @@ public:
     void TransitResource(D3dResource& resource, ResourceState stateAfter) const;
     void TransitionSubResource(D3dResource& resource, uint64_t subResourceIndex, ResourceState stateAfter, bool begin) const;
     void TransitionResource(D3dResource& resource, ResourceState stateAfter, bool begin) const;
-    void UpdateBufferResource(DefaultHeap& buffer, const byte* data, uint64_t width) const;
+    void UpdateBufferResource(const StaticBuffer& buffer, const byte* data, uint64_t width) const;
     void DrawMeshInstanced() const;
     void DrawMesh() const;
     void Close() const;

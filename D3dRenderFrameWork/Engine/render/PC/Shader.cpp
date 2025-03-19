@@ -1,6 +1,6 @@
 ﻿#ifdef WIN32
 #include <Engine/common/helper.h>
-#include <Engine/common/PC/WException.h>
+#include <Engine/common/Exception.h>
 #include <Engine/render/PC/D3dUtil.h>
 #include <Engine/render/PC/Data.h>
 #include <Engine/render/PC/Shader.h>
@@ -28,10 +28,11 @@ void Shader::LoadAndCompile(const std::wstring& path, ID3DBlob** bin, ShaderType
 void Shader::LoadAndCompile(const std::string& path, ID3DBlob** bin, ShaderType type, ID3DBlob** error)
 {
     std::ifstream fIn{ path, std::ios::binary };
-    if (!fIn.is_open()){
-        // TODO: warn
-        return;
-    }
+#ifdef DEBUG
+    ASSERT(fIn.is_open(), TEXT("Failed to open shader file"));
+#else
+    // TODO: warning
+#endif
     fIn.seekg(0, std::ios_base::end);
     std::ifstream::pos_type size = fIn.tellg();
     fIn.seekg(0, std::ios_base::beg);
@@ -103,4 +104,6 @@ Shader CreateShader(ID3DBlob* bin, ID3D12ShaderReflection* pReflector, ShaderTyp
     }
     return { bin, type, parameters, numParameter };
 }
+
+std::vector<String> Shader::sShaderIncludes{2}; // 2 : expected number of includes, current: "common/Transform.hlsl", "common/LightConstants.hlsl"
 #endif

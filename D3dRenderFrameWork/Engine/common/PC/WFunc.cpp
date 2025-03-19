@@ -1,4 +1,5 @@
-#include "WFunc.h"
+#ifdef WIN32
+#include <Engine/common/PC/WFunc.h>
 
 void WFunc::QueryPrimaryScreenRC(RECT* rect)
 {
@@ -70,3 +71,4 @@ bool WFunc::SafeShutdown(HWND hWnd)
 	}
 	return false;
 }
+#endif

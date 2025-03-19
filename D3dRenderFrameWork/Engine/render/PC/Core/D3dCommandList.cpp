@@ -1,11 +1,10 @@
 ﻿#ifdef WIN32
-#include <Engine/common/PC/WException.h>
-#include <Engine/render/PC/D3dCommandList.h>
-#include <Engine/render/PC/D3dCommandQueue.h>
-#include <Engine/render/PC/D3dGraphicContext.h>
+#include <Engine/common/Exception.h>
+#include <Engine/render/PC/Core/D3dCommandList.h>
+#include <Engine/render/PC/Core/D3dGraphicContext.h>
 #include <Engine/render/PC/D3dUtil.h>
-#include <Engine/render/PC/RenderContext.h>
-#include <Engine/render/PC/RenderResource/DefaultHeap.h>
+#include <Engine/render/PC/Core/RenderContext.h>
+#include <Engine/render/PC/RenderResource/StaticBuffer.h>
 
 bool Fence::IsValid() const
 {
@@ -53,7 +52,7 @@ void D3dCommandList::TransitResource(D3dResource& resource, ResourceState stateA
     ASSERT(pResource, TEXT("transiting resource is invalid\n"));
 #endif
     D3D12_RESOURCE_DESC&& desc = pResource->GetDesc();
-    auto* transition = mRenderContext->GetResourceStates(&resource);
+    auto* transition = mRenderContext->getResourceStates(&resource);
 #ifdef DEBUG || _DEBUG
     ASSERT(transition, TEXT("resource not declared as used\n"));
 #endif
@@ -112,7 +111,7 @@ void D3dCommandList::TransitionSingle(D3dResource& resource, uint64_t subResourc
     D3D12_RESOURCE_DESC&& desc = pResource->GetDesc();
     bool isBufferOrSimultaneous = desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS ||
                 desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER;
-    auto* transition = mRenderContext->GetSubResourceTransition(&resource, subResourceIndex);
+    auto* transition = mRenderContext->getSubResourceTransition(&resource, subResourceIndex);
 #ifdef _DEBUG | DEBUG
     ASSERT(count > subResourceIndex, TEXT("subResource index is out of bound\n"))
     ASSERT(transition, TEXT("resource not declared as used\n"));
@@ -157,7 +156,7 @@ void D3dCommandList::TransitionAll(D3dResource& resource,
     D3D12_RESOURCE_BARRIER* barriers = new D3D12_RESOURCE_BARRIER[count];
     for (uint64_t i = 0; i < count; ++i)
     {
-        auto* transition = mRenderContext->GetSubResourceTransition(&resource, i);
+        auto* transition = mRenderContext->getSubResourceTransition(&resource, i);
 #ifdef DEBUG | _DEBUG
         ASSERT(transition, TEXT("resource not declared as used\n"));
 #endif
@@ -196,7 +195,7 @@ void D3dCommandList::ResolveFirstTransitions() const
 #endif
     ID3D12GraphicsCommandList* pPreTransition = nullptr;
     ThrowIfFailed(::gGraphicContext()->DeviceHandle()->CreateCommandList(
-        0, mRenderContext->GetCommandQueue()->GetQueueType(), mCommandAllocator,
+        0, mRenderContext->getCommandQueue()->GetDesc().Type, mCommandAllocator,
         nullptr, IID_PPV_ARGS(&pPreTransition))
         );
     
@@ -273,21 +272,21 @@ void D3dCommandList::ResolveFirstTransitions() const
         }
     };
     
-    mRenderContext->ForeachResource(transitionAll, transitionSingle);
+    mRenderContext->foreachResource(transitionAll, transitionSingle);
 }
 
 // update data in the default buffer
 // remark: no auto resource state transition
 void D3dCommandList::UpdateBufferResource(
-    DefaultHeap& buffer,
+    const StaticBuffer& buffer,
     const byte* data, uint64_t width) const
 {
     ID3D12Device* pDevice= gGraphicContext()->DeviceHandle();
-    D3D12_RESOURCE_DESC heapDesc = buffer->NativePtr()->GetDesc();
+    D3D12_RESOURCE_DESC heapDesc = buffer.NativePtr()->GetDesc();
     D3D12_HEAP_PROPERTIES heapProp;
-    buffer->NativePtr()->GetHeapProperties(&heapProp, nullptr);
+    buffer.NativePtr()->GetHeapProperties(&heapProp, nullptr);
     heapProp.Type = D3D12_HEAP_TYPE_UPLOAD;
-    D3dResource uploadBuffer = ::CreateD3dResource(pDevice, D3D12_HEAP_FLAG_NONE, heapProp,
+    D3dResource uploadBuffer = ::gCreateD3dResource(pDevice, D3D12_HEAP_FLAG_NONE, heapProp,
                                                    heapDesc, D3D12_RESOURCE_STATE_GENERIC_READ);
     CD3DX12_RANGE readRange(0, 0);
     void* mappedData = nullptr;
@@ -295,7 +294,7 @@ void D3dCommandList::UpdateBufferResource(
     memcpy(mappedData, data, width);
     uploadBuffer.NativePtr()->Unmap(0, &readRange);
 
-    mCommandList->CopyResource(buffer->NativePtr(), uploadBuffer.NativePtr());
+    mCommandList->CopyResource(buffer.NativePtr(), uploadBuffer.NativePtr());
 }
 
 void D3dCommandList::Close() const

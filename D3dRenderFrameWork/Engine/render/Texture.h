@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <pch.h>
+#include <Engine/pch.h>
 
 enum class TextureFormat : uint8_t
 {
@@ -59,17 +59,20 @@ public:
             TextureFormat format, uint8_t numMips = 1,
             uint8_t sampleCount = 1, uint8_t sampleQuality = 0);
     Texture(const Texture& o) noexcept;
+    Texture(TextureType type, const D3D12_RESOURCE_DESC& desc);
 
-    virtual byte* DataPtr() const = 0;
-    virtual byte* SubDatePtr(uint8_t mip, uint32_t x, uint32_t y, uint32_t z) const = 0;
+    virtual const byte* dataPtr() const = 0;
+    virtual const byte* subDatePtr(uint8_t mip) const = 0;
     virtual ~Texture();
 
     DEFAULT_MOVE_CONSTRUCTOR(Texture)
     DEFAULT_MOVE_OPERATOR(Texture)
     Texture& operator=(const Texture& o) noexcept;
+    
+protected:
+    Texture();
 
 private:
-    Texture();
 
     TextureType mType;
     TextureFormat mFormat;

@@ -1,10 +1,16 @@
-﻿#include "WFrame.h"
-#include "../../common/PC/WFunc.h"
-#include "../../common/PC/WException.h"
+﻿#include <Engine/common/Exception.h>
+#include <Engine/common/PC/WFunc.h>
+#include <Engine/Window/WFrame.h>
 
-IFrame* IFrame::CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen)
+Frame* Frame::CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen)
 {
-    return new WFrame(title, width, height, isFullScreen);
+    return new WFrame{ title, width, height, isFullScreen };
+}
+
+Frame& gFrame()
+{
+    WFrame frame{};
+    return frame;
 }
 
 LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -19,6 +25,7 @@ LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (res >= HTLEFT && res <= HTBOTTOMRIGHT) return HTBORDER;
             return res;
         }
+    // attach WFrame instance to hwnd
     case WM_NCCREATE:
         frame = static_cast<WFrame*>(reinterpret_cast<CREATESTRUCTW*>(lParam)->lpCreateParams);
         if (frame) SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(frame));
@@ -29,7 +36,7 @@ LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
         return 0;
     case WM_CLOSE:
         if ((frame = reinterpret_cast<WFrame*>(GetWindowLongPtr(hwnd, GWLP_USERDATA))))
-            frame->IFrame::Close();
+            frame->Frame::Close();
         else
             DestroyWindow(hwnd);
         return 0;
@@ -76,7 +83,7 @@ HWND WFrame::WindowHandle() const
 
 float WFrame::DPIScalar() const
 {
-    return mDpi / 96.0f;
+    return static_cast<float>(mDpi) / 96.0f;
 }
 
 void WFrame::OnDpiChanged(WORD dpi)
@@ -101,21 +108,21 @@ void WFrame::GetClientSize(uint16_t& width, uint16_t& height) const
 
 void WFrame::Close()
 {
-    IFrame::Close();
+    Frame::Close();
     SetWindowLongPtr(mWindowHandle, GWLP_USERDATA, 0);
     DestroyWindow(mWindowHandle);
 }
 
 void WFrame::SetFrameSize(uint16_t width, uint16_t height)
 {
-    IFrame::SetFrameSize(width, height);
+    Frame::SetFrameSize(width, height);
     SetWindowPos(mWindowHandle, nullptr, 0, 0, width, height, SWP_NOMOVE | SWP_NOZORDER);
 }
 
 void WFrame::SetFullScreenMode(bool isFullScreen)
 {
     if (isFullScreen == IsFullScreen()) return;
-    IFrame::SetFullScreenMode(isFullScreen);
+    Frame::SetFullScreenMode(isFullScreen);
     if (!isFullScreen)
     {
         SetWindowLongPtr(mWindowHandle, GWL_STYLE, WS_OVERLAPPEDWINDOW);
@@ -129,26 +136,21 @@ void WFrame::SetFullScreenMode(bool isFullScreen)
                  mi.rcMonitor.right - mi.rcMonitor.left, mi.rcMonitor.bottom - mi.rcMonitor.top, SWP_FRAMECHANGED);
 }
 
-WFrame::WFrame() :
-    IFrame(),
-    mWindowClassPtr(new WindowClass(DEFAULT_FRAME_TITLE, DefaultFrameProc))
-{
-    InitializeWinFrame();
-}
+WFrame::WFrame() = default;
 
 WFrame::WFrame(const String& title, uint16_t width, uint16_t height, bool mode) :
-    IFrame(title, width, height, mode),
+    Frame(title, width, height, mode),
     mWindowClassPtr(new WindowClass(title, DefaultFrameProc))
 {
     InitializeWinFrame();
 }
 
 WFrame::WFrame(WFrame&& other) noexcept :
-    IFrame(std::move(other)),
-    mWindowClassPtr(other.mWindowClassPtr),
+    Frame(std::move(other)),
     mWindowHandle(other.mWindowHandle),
     mDpi(other.mDpi)
 {
+    mWindowClassPtr = other.mWindowClassPtr;
     other.mWindowClassPtr = nullptr;
     SetWindowLongPtr(mWindowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
 }
@@ -165,11 +167,15 @@ WFrame& WFrame::operator=(WFrame&& other) noexcept
 {
     if (this != &other)
     {
-        IFrame::operator=(std::move(other));
+        Frame::operator=(std::move(other));
+        DestroyWindow(mWindowHandle);
+        delete mWindowClassPtr;
+        
         mWindowClassPtr = other.mWindowClassPtr;
         mWindowHandle = other.mWindowHandle;
         mDpi = other.mDpi;
         other.mWindowClassPtr = nullptr;
+        other.mWindowHandle = nullptr;
         SetWindowLongPtr(mWindowHandle, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
     }
     return *this;

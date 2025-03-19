@@ -2,6 +2,8 @@
 #ifdef WIN32
 #include <Engine/render/PC/RenderResource/D3dResource.h>
 
+enum class TextureFormat : uint8_t;
+class RenderTexture;
 class Shader;
 class D3dCommandQueue;
 
@@ -14,14 +16,18 @@ struct RenderContext
     using ForeachSubResource = std::function<void(D3dResource&, uint64_t subResourceIndex, ResourceState*)>;
 
 public:
-    void UseResource(D3dResource& resource, uint64_t subResourceIndex);
-    void UseResource(D3dResource& resource);
-    void SetVertexShader(const Shader& shader);
-    void SetPixelShader(const Shader& shader);
-    void ForeachResource(const ForeachGeneralResource& foreachGeneral, const ForeachSubResource& foreachSubResource) const;
-    D3dCommandQueue* GetCommandQueue() const;
-    ResourceState* GetSubResourceTransition(D3dResource* pResource, uint64_t subResourceIndex);
-    ResourceState* GetResourceStates(D3dResource* pResource);
+    void setRenderTargets(RenderTexture* renderTargets, uint8_t numRenderTargets);
+    void setDepthStencilFormat(TextureFormat format);
+    RenderTexture* getRenderTargets() const;
+    TextureFormat getDepthStencilFormat() const;
+    void useResource(D3dResource& resource, uint64_t subResourceIndex);
+    void useResource(D3dResource& resource);
+    void setVertexShader(const Shader& shader);
+    void setPixelShader(const Shader& shader);
+    void foreachResource(const ForeachGeneralResource& foreachGeneral, const ForeachSubResource& foreachSubResource) const;
+    ID3D12CommandQueue* getCommandQueue() const;
+    ResourceState* getSubResourceTransition(D3dResource* pResource, uint64_t subResourceIndex);
+    ResourceState* getResourceStates(D3dResource* pResource);
     ~RenderContext();
 
     DELETE_COPY_CONSTRUCTOR(RenderContext)
@@ -50,11 +56,14 @@ private:
                 ^ std::hash<uint64_t>{}(subResource.subResourceIndex);
         }
     };
+    static D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc();
 
     void TransitionPostExecution();
-    RenderContext(D3dCommandQueue& commandQueue);
+    RenderContext(ID3D12CommandQueue* commandQueue);
+    // RenderContext(D3dCommandQueue& commandQueue);
 
-    D3dCommandQueue* mCommandQueue;
+    RenderTexture* mRenderTargets;
+    ID3D12CommandQueue* mCommandQueue;
     D3D12_GRAPHICS_PIPELINE_STATE_DESC mPsoDescriptor;
     bool mIsPsoDirty;
     std::unordered_map<D3dResource*, ResourceState*> mResourceStates;

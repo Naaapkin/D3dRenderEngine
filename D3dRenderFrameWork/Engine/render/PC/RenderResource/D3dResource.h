@@ -1,6 +1,7 @@
 #pragma once
 #ifdef WIN32
-#include "pch.h"
+#include <Engine/pch.h>
+#include <Engine/render/PC/D3dRenderer.h>
 
 enum class ResourceState : uint32_t
 {
@@ -33,18 +34,20 @@ enum class ResourceState : uint32_t
 
 struct D3dResource
 {
-    friend D3dResource CreateD3dResource(ID3D12Device* pDevice,
+    friend D3dResource gCreateD3dResource(ID3D12Device* pDevice,
         D3D12_HEAP_FLAGS heapFlags,
         const D3D12_HEAP_PROPERTIES& heapProp,
         const D3D12_RESOURCE_DESC& desc,
         D3D12_RESOURCE_STATES initialState);
+    friend class D3dRenderer;
+    
 public:
     ID3D12Resource* NativePtr() const;
     uint64_t SubResourceCount() const;
     ResourceState* ResourceStates() const;
 
     GUID GetGuid() const;
-    virtual void Release();
+    virtual void release();
     virtual ~D3dResource();
 
     DELETE_COPY_CONSTRUCTOR(D3dResource)
@@ -61,7 +64,7 @@ private:
     ResourceState* mResourceStates;
 };
 
-D3dResource CreateD3dResource(ID3D12Device* pDevice,
+D3dResource gCreateD3dResource(ID3D12Device* pDevice,
     D3D12_HEAP_FLAGS heapFlags,
     const D3D12_HEAP_PROPERTIES& heapProp,
     const D3D12_RESOURCE_DESC& desc,

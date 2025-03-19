@@ -1,10 +1,44 @@
 ﻿#ifdef WIN32
-#include <Engine/common/PC/WException.h>
-#include <Engine/render/PC/D3dCommandQueue.h>
-#include <Engine/render/PC/RenderContext.h>
+#include <Engine/common/Exception.h>
 #include <Engine/render/PC/Shader.h>
+#include <Engine/render/PC/Core/RenderContext.h>
+#include <Engine/render/PC/RenderResource/RenderTexture.h>
 
-void RenderContext::UseResource(D3dResource& resource, uint64_t subResourceIndex)
+void RenderContext::setRenderTargets(RenderTexture* renderTargets, uint8_t numRenderTargets)
+{
+    if (mRenderTargets == renderTargets || numRenderTargets <= 0 || !renderTargets) return;
+    mRenderTargets = renderTargets;
+    mPsoDescriptor.NumRenderTargets = numRenderTargets;
+    uint8_t sampleCount = 0xff; uint8_t sampleQuality = 0xff;
+    for (int i = 0; i < numRenderTargets; ++i)
+    {
+        mPsoDescriptor.RTVFormats[i] = static_cast<DXGI_FORMAT>(renderTargets[i].Format());
+        DXGI_SAMPLE_DESC sampleDesc = renderTargets[i].NativePtr()->GetDesc().SampleDesc;
+        sampleCount = std::min<uint8_t>(sampleCount, sampleDesc.Count);
+        sampleQuality = std::min<uint8_t>(sampleQuality, sampleDesc.Quality);
+    }
+    mPsoDescriptor.SampleDesc = {sampleCount, sampleQuality};
+    mIsPsoDirty = true;
+}
+
+void RenderContext::setDepthStencilFormat(TextureFormat format)
+{
+    if (mPsoDescriptor.DSVFormat == static_cast<DXGI_FORMAT>(format)) return;
+    mPsoDescriptor.DSVFormat = static_cast<DXGI_FORMAT>(format);
+    mIsPsoDirty = true;
+}
+
+TextureFormat RenderContext::getDepthStencilFormat() const
+{
+    return static_cast<TextureFormat>(mPsoDescriptor.DSVFormat);
+}
+
+RenderTexture* RenderContext::getRenderTargets() const
+{
+    return mRenderTargets;
+}
+
+void RenderContext::useResource(D3dResource& resource, uint64_t subResourceIndex)
 {
 #ifdef DEBUG || _DEBUG
     ASSERT(resource.NativePtr(), TEXT("resource is invalid"));    
@@ -24,7 +58,7 @@ void RenderContext::UseResource(D3dResource& resource, uint64_t subResourceIndex
     }
 }
 
-void RenderContext::UseResource(D3dResource& resource)
+void RenderContext::useResource(D3dResource& resource)
 {
 #ifdef DEBUG || _DEBUG
     ASSERT(resource.NativePtr(), TEXT("resource is invalid"));
@@ -32,7 +66,7 @@ void RenderContext::UseResource(D3dResource& resource)
     mResourceStates.emplace(&resource, new ResourceState[]{ResourceState::UNKNOWN, ResourceState::UNKNOWN});
 }
 
-void RenderContext::SetVertexShader(const Shader& shader)
+void RenderContext::setVertexShader(const Shader& shader)
 {
 #ifdef DEBUG || _DEBUG
     ASSERT(shader.Type() == ShaderType::VERTEX_SHADER, TEXT("shader type is not vertex shader"));
@@ -62,7 +96,7 @@ void RenderContext::SetVertexShader(const Shader& shader)
     mIsPsoDirty = true;
 }
 
-void RenderContext::SetPixelShader(const Shader& shader)
+void RenderContext::setPixelShader(const Shader& shader)
 {
 #ifdef DEBUG || _DEBUG
     ASSERT(shader.Type() == ShaderType::PIXEL_SHADER, TEXT("shader type is not pixel shader"));
@@ -76,7 +110,7 @@ void RenderContext::SetPixelShader(const Shader& shader)
     mIsPsoDirty = true;
 }
 
-void RenderContext::ForeachResource(const ForeachGeneralResource& foreachGeneral, const ForeachSubResource& foreachSubResource) const
+void RenderContext::foreachResource(const ForeachGeneralResource& foreachGeneral, const ForeachSubResource& foreachSubResource) const
 {
     for (auto generalResource : mResourceStates)
     {
@@ -89,14 +123,31 @@ void RenderContext::ForeachResource(const ForeachGeneralResource& foreachGeneral
     }
 }
 
-D3dCommandQueue* RenderContext::GetCommandQueue() const
+ID3D12CommandQueue* RenderContext::getCommandQueue() const
 {
     return mCommandQueue;
 }
 
+D3D12_GRAPHICS_PIPELINE_STATE_DESC RenderContext::defaultPipelineStateDesc()
+{
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEFAULT);
+
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.RasterizerState.FrontCounterClockwise = true;	// counter-clock wise
+    psoDesc.SampleMask = 0xffffffff;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    psoDesc.SampleDesc = DXGI_SAMPLE_DESC{ 1, 0 };
+    return psoDesc;
+}
+
 void RenderContext::TransitionPostExecution()
 {
-    bool isCopyQueue = mCommandQueue->GetQueueType() == D3D12_COMMAND_LIST_TYPE_COPY;
+    bool isCopyQueue = mCommandQueue->GetDesc().Type == D3D12_COMMAND_LIST_TYPE_COPY;
     for (auto& states : mSubResourceStates)
     {
         auto& resource = states.first;
@@ -121,25 +172,15 @@ void RenderContext::TransitionPostExecution()
     mSubResourceStates.clear();
 }
 
-RenderContext::RenderContext(D3dCommandQueue& commandQueue) :
-    mCommandQueue(&commandQueue),
+RenderContext::RenderContext(ID3D12CommandQueue* commandQueue) :
+    mCommandQueue(commandQueue),
     mPsoDescriptor(),
-    mIsPsoDirty(true)
+    mIsPsoDirty(true),
+    mRenderTargets(nullptr)
 {
-    CD3DX12_RASTERIZER_DESC rasterizerDesc(D3D12_DEFAULT);
-    rasterizerDesc.FrontCounterClockwise = true;	// counter-clock wise
-    mPsoDescriptor.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
-    mPsoDescriptor.SampleMask = 0xffffffff;
-    mPsoDescriptor.RasterizerState = rasterizerDesc;
-    mPsoDescriptor.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEFAULT);
-    mPsoDescriptor.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    mPsoDescriptor.NumRenderTargets = 1;    // OMSetRenderTargets
-    // mPsoDescriptor.RTVFormats[0] = backBufferFormat;    // 
-    // mPsoDescriptor.DSVFormat = depthStencilFormat;
-    // mPsoDescriptor.SampleDesc = DXGI_SAMPLE_DESC{ 1, msaaQuality };
 }
 
-ResourceState* RenderContext::GetSubResourceTransition(D3dResource* pResource, uint64_t subResourceIndex)
+ResourceState* RenderContext::getSubResourceTransition(D3dResource* pResource, uint64_t subResourceIndex)
 {
 #ifdef DEBUG || _DEBUG
     ASSERT(pResource->SubResourceCount() > subResourceIndex, TEXT("subResourceIndex out of range"));
@@ -149,7 +190,7 @@ ResourceState* RenderContext::GetSubResourceTransition(D3dResource* pResource, u
 	return it->second;
 }
 
-ResourceState* RenderContext::GetResourceStates(D3dResource* pResource)
+ResourceState* RenderContext::getResourceStates(D3dResource* pResource)
 {
 	const auto it = mResourceStates.find(pResource);
 	if (it == mResourceStates.end()) return nullptr;
