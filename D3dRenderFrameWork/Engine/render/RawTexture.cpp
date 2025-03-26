@@ -1,6 +1,6 @@
 ﻿#ifdef WIN32
-#include <Engine/render/RawTexture.h>
-#include <Engine/common/Exception.h>
+#include "Engine/render/RawTexture.h"
+#include "Engine/common/Exception.h"
 
 const byte* RawTexture::dataPtr() const
 {
@@ -20,7 +20,7 @@ void RawTexture::SetData(const byte* data) const
 
 void RawTexture::SetSubData(uint8_t mip, const byte* subData) const
 {
-#ifdef DEBUG || _DEBUG
+#if defined(DEBUG) or defined(_DEBUG)
     ASSERT(mip < MipLevels(), TEXT("index out of bound"));
 #endif
     uint64_t index = GetMip(MipLevels());

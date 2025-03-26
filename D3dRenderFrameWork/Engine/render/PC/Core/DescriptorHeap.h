@@ -1,18 +1,18 @@
 ﻿#pragma once
-
 #ifdef WIN32
-#include <Engine/pch.h>
+#include "Engine/pch.h"
+#include "Engine/render/PC/Core/D3dObject.h"
 
-class DescriptorHeap
+class DescriptorHeap : public D3dObject
 {
 public:
-    ID3D12DescriptorHeap* HeapHandle() const;
-    D3D12_CPU_DESCRIPTOR_HANDLE CPUHandle(uint32_t index) const;
-    D3D12_GPU_DESCRIPTOR_HANDLE GPUHandle(uint32_t index) const;
-    uint32_t DescriptorSize() const;
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle(uint32_t index) const;
+    D3D12_GPU_DESCRIPTOR_HANDLE gpuHandle(uint32_t index) const;
+    uint32_t descriptorSize() const;
+    ID3D12DescriptorHeap* nativePtr() const override;
 
-    DescriptorHeap(ID3D12DescriptorHeap* pDescHeap, uint32_t descriptorSize);
-    ~DescriptorHeap();
+    DescriptorHeap(ID3D12DescriptorHeap* pDescHeap, uint32_t descriptorSize, uint32_t numDescriptors);
+    ~DescriptorHeap() override = default;
 
     DELETE_COPY_CONSTRUCTOR(DescriptorHeap);
     DELETE_COPY_OPERATOR(DescriptorHeap);
@@ -20,7 +20,38 @@ public:
     DEFAULT_MOVE_OPERATOR(DescriptorHeap);
 
 private:
-    ComPtr<ID3D12DescriptorHeap> mDescHeap;
+    uint32_t mNumDescriptors;
     uint32_t mDescriptorSize;
 };
+
+inline D3D12_CPU_DESCRIPTOR_HANDLE DescriptorHeap::cpuHandle(uint32_t index) const
+{
+    auto&& handle = nativePtr()->GetCPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<UINT64>(mDescriptorSize * index);
+    return handle;
+}
+
+inline D3D12_GPU_DESCRIPTOR_HANDLE DescriptorHeap::gpuHandle(uint32_t index) const
+{
+    auto&& handle = nativePtr()->GetGPUDescriptorHandleForHeapStart();
+    handle.ptr += static_cast<UINT64>(mDescriptorSize * index);
+    return handle;
+}
+
+inline uint32_t DescriptorHeap::descriptorSize() const
+{
+    return mDescriptorSize;
+}
+
+inline ID3D12DescriptorHeap* DescriptorHeap::nativePtr() const
+{
+    return static_cast<ID3D12DescriptorHeap*>(D3dObject::nativePtr());
+}
+
+inline DescriptorHeap::DescriptorHeap(ID3D12DescriptorHeap* pDescHeap, uint32_t descriptorSize, uint32_t numDescriptors) :
+    D3dObject(pDescHeap),
+    mNumDescriptors(numDescriptors),
+    mDescriptorSize(descriptorSize)
+{
+}
 #endif

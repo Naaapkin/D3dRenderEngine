@@ -1,9 +1,9 @@
 ﻿#ifdef WIN32
-#include <Engine/common/Exception.h>
-#include <Engine/common/PC/WFunc.h>
-#include <Engine/render/PC/D3dUtil.h>
+#include "Engine/common/Exception.h"
+#include "Engine/common/PC/WFunc.h"
+#include "Engine/render/PC/D3dUtil.h"
 
-DXGI_FORMAT GetParaFormatFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& paramDesc) {
+DXGI_FORMAT GetParaInfoFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& paramDesc) {
     switch (paramDesc.ComponentType)
     {
         case D3D_REGISTER_COMPONENT_UINT32:
@@ -59,8 +59,25 @@ ID3DBlob* LoadCompiledShaderObject(const String& path)
     return binaryBlob;
 }
 
-bool CanImplicitTransit(const uint32_t& stateBefore, uint32_t& stateAfter,
-                        bool isBufferOrSimultaneous)
+D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc()
+{
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
+    psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
+    psoDesc.BlendState = CD3DX12_BLEND_DESC(D3D12_DEFAULT);
+    psoDesc.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC1(D3D12_DEFAULT);
+
+    psoDesc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+    psoDesc.RasterizerState.FrontCounterClockwise = true;	// counter-clock wise
+    psoDesc.SampleMask = 0xffffffff;
+    psoDesc.NumRenderTargets = 1;
+    psoDesc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    psoDesc.SampleDesc = DXGI_SAMPLE_DESC{ 1, 0 };
+    return psoDesc;
+}
+
+bool gImplicitTransit(const uint32_t stateBefore, uint32_t& stateAfter,
+                      bool isBufferOrSimultaneous)
 {
     constexpr uint32_t READ_ONLY_MASK = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
         D3D12_RESOURCE_STATE_INDEX_BUFFER |
@@ -82,7 +99,7 @@ bool CanImplicitTransit(const uint32_t& stateBefore, uint32_t& stateAfter,
     uint32_t writeStateBefore = stateBefore & WRITE_ONLY_MASK;
     uint32_t writeStateAfter = stateAfter & WRITE_ONLY_MASK;
 
-#ifdef DEBUG || _ DEBUG
+#if defined(DEBUG) or defined(_DEBUG)
     ASSERT(((writeStateAfter - 1) & writeStateAfter && writeStateAfter) == 0, TEXT("cant transition to multi-write state"));
 #endif
     if (((stateBefore | stateAfter) & DEPTH_RW) ||                          // depth read or write states cant implicit transition in or out

@@ -1,33 +1,27 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <Engine/render/PC/RenderResource/D3dResource.h>
 
+class D3dCommandList;
 enum class TextureFormat : uint8_t;
-class RenderTexture;
+class RenderTexture2D;
 class Shader;
 class D3dCommandQueue;
 
 struct RenderContext 
 {
-    struct SubResource;
-    struct Hash;
-
-    using ForeachGeneralResource = std::function<void(D3dResource&, ResourceState*)>;
-    using ForeachSubResource = std::function<void(D3dResource&, uint64_t subResourceIndex, ResourceState*)>;
-
 public:
-    void setRenderTargets(RenderTexture* renderTargets, uint8_t numRenderTargets);
-    void setDepthStencilFormat(TextureFormat format);
-    RenderTexture* getRenderTargets() const;
-    TextureFormat getDepthStencilFormat() const;
-    void useResource(D3dResource& resource, uint64_t subResourceIndex);
-    void useResource(D3dResource& resource);
-    void setVertexShader(const Shader& shader);
-    void setPixelShader(const Shader& shader);
-    void foreachResource(const ForeachGeneralResource& foreachGeneral, const ForeachSubResource& foreachSubResource) const;
-    ID3D12CommandQueue* getCommandQueue() const;
-    ResourceState* getSubResourceTransition(D3dResource* pResource, uint64_t subResourceIndex);
-    ResourceState* getResourceStates(D3dResource* pResource);
+    void setPassCbvStartIdx(D3D12_CPU_DESCRIPTOR_HANDLE cbvStartIndex);
+    void setObjectCbvStartIdx(D3D12_CPU_DESCRIPTOR_HANDLE cbvStartIndex);
+    void setRenderTargets(const RenderTexture2D* renderTargets, uint8_t numRenderTargets);
+    void setDepthStencilBuffer(const RenderTexture2D* depthStencilBuffer);
+    const RenderTexture2D* backBuffer() const;
+    const RenderTexture2D* depthStencilBuffer() const;
+    void setCommandQueue(ID3D12CommandQueue* pCommandQueue);
+    void executeCommandLists(const std::vector<D3dCommandList*>& commandLists) const;
+    void executeCommandList(D3dCommandList*& commandList) const;
+    void reset(ID3D12CommandQueue* pCommandQueue);
+
+    RenderContext();
     ~RenderContext();
 
     DELETE_COPY_CONSTRUCTOR(RenderContext)
@@ -35,38 +29,13 @@ public:
     DEFAULT_MOVE_CONSTRUCTOR(RenderContext)
     DEFAULT_MOVE_OPERATOR(RenderContext)
 
-private:
-    struct SubResource
-    {
-        SubResource(D3dResource* resource, uint64_t subResourceIndex) : mResource(resource), subResourceIndex(subResourceIndex) { }
-        D3dResource* mResource;
-        uint64_t subResourceIndex;
-
-        bool operator==(const SubResource& other) const
-        {
-            return mResource == other.mResource && subResourceIndex == other.subResourceIndex;
-        }
-    };
-    
-    struct HashSubResource
-    {
-        size_t operator()(const SubResource& subResource) const
-        {
-            return std::hash<ID3D12Resource*>{}(subResource.mResource->NativePtr())
-                ^ std::hash<uint64_t>{}(subResource.subResourceIndex);
-        }
-    };
-    static D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc();
-
-    void TransitionPostExecution();
-    RenderContext(ID3D12CommandQueue* commandQueue);
-    // RenderContext(D3dCommandQueue& commandQueue);
-
-    RenderTexture* mRenderTargets;
+private:    
     ID3D12CommandQueue* mCommandQueue;
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC mPsoDescriptor;
-    bool mIsPsoDirty;
-    std::unordered_map<D3dResource*, ResourceState*> mResourceStates;
-    std::unordered_map<SubResource, ResourceState*, HashSubResource> mSubResourceStates;
+    std::vector<D3dCommandList*> mPendingCommandLists;
+    const RenderTexture2D* mRenderTargets;
+    const RenderTexture2D* mDepthStencilBuffer;
+    uint8_t mNumTargetRenderTarget;
+    D3D12_CPU_DESCRIPTOR_HANDLE mPassCbvStartIdx;
+    D3D12_CPU_DESCRIPTOR_HANDLE mObjectCbvStartIdx;
 };
 #endif

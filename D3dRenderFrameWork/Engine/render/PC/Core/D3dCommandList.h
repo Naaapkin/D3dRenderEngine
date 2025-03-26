@@ -1,54 +1,54 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <Engine/pch.h>
-#include <Engine/render/PC/D3dRenderer.h>
-#include <Engine/render/PC/RenderResource/DynamicBuffer.h>
+#include "Engine/pch.h"
+#include "Engine/render/PC/Core/D3dObject.h"
+#include "Engine/render/PC/Core/RenderContext.h"
+#include "Engine/render/PC/Core/ResourceStateTracker.h"
 
-struct RenderContext;
-class D3dCommandQueue;
+class Material;
+struct Mesh;
+class D3dAllocator;
 class StaticBuffer;
-class D3dGraphicContext;
+enum class ResourceState : uint32_t;
+class D3dResource;
 
-struct Fence
+class Fence : public D3dObject
 {
-    friend Fence D3dRenderer::sCreateFence();
-    friend class D3dCommandList;
-    
 public:
-    void Wait() const;
+    void wait(uint64_t fencePoint) const;
+    ID3D12Fence* nativePtr() const override;
     // didnt guarantee gpu has reached the fence point, maybe we should wait for it
-    ~Fence() = default;
+    Fence();
+    Fence(ID3D12Fence* fence);
+    ~Fence() override = default;
 
     DELETE_COPY_CONSTRUCTOR(Fence)
     DELETE_COPY_OPERATOR(Fence)
     DEFAULT_MOVE_CONSTRUCTOR(Fence)
     DEFAULT_MOVE_OPERATOR(Fence)
-    
-private:
-    bool IsValid() const;
-    Fence();
-    Fence(ID3D12Fence* fence);
-
-    ComPtr<ID3D12Fence> mFence;
-    uint64_t mFenceValue;
 };
 
-class D3dCommandList
+class D3dCommandList final : D3dObject
 {
-    friend D3dCommandList CreateD3dCommandList(ID3D12Device* pDevice, ID3D12CommandAllocator* pCommandAllocator, D3D12_COMMAND_LIST_TYPE type);
+    friend void RenderContext::executeCommandLists(const std::vector<D3dCommandList*>& commandLists) const;
+    friend void RenderContext::executeCommandList(D3dCommandList*& commandList) const;
     
 public:
-    void FlushCommandList(RenderContext& renderContext);
-    void TransitSubResource(D3dResource& resource, uint64_t subResourceIndex, ResourceState stateAfter) const;
-    void TransitResource(D3dResource& resource, ResourceState stateAfter) const;
-    void TransitionSubResource(D3dResource& resource, uint64_t subResourceIndex, ResourceState stateAfter, bool begin) const;
-    void TransitionResource(D3dResource& resource, ResourceState stateAfter, bool begin) const;
-    void UpdateBufferResource(const StaticBuffer& buffer, const byte* data, uint64_t width) const;
-    void DrawMeshInstanced() const;
-    void DrawMesh() const;
-    void Close() const;
-    ID3D12CommandList* NativePtr() const;
-    ~D3dCommandList();
+    void close() const;
+    void reset();
+    void reset(ID3D12CommandAllocator* pAllocator);
+    void setRenderTargets(const RenderTexture2D* pRenderTarget, uint64_t numRenderTargets, const RenderTexture2D& depthStencil);
+    void setDepthStencil(RenderTexture2D* pDepthStencil);
+    void transition(D3dResource& resource, uint64_t subResourceIndex, ResourceState dstState);
+    void transition(D3dResource& resource, ResourceState dstState);
+    void updateBufferResource(const D3dAllocator& allocator, const StaticBuffer& buffer, const byte* data) const;
+    void drawMeshInstanced() const;
+    void drawMesh(const Mesh& meshData, const DirectX::XMMATRIX& matrix, const Material& material) const;
+
+    ID3D12GraphicsCommandList* nativePtr() const override;
+    D3dCommandList(ID3D12GraphicsCommandList* pCommandList, ID3D12CommandAllocator* pAllocator = nullptr);
+    ~D3dCommandList() override;
+    D3dCommandList();
     
     DELETE_COPY_CONSTRUCTOR(D3dCommandList)
     DELETE_COPY_OPERATOR(D3dCommandList)
@@ -56,17 +56,9 @@ public:
     DEFAULT_MOVE_OPERATOR(D3dCommandList)
     
 private:
-    void TransitionSingle(D3dResource& resource, uint64_t subResourceIndex, ResourceState stateAfter) const;
-    void TransitionAll(D3dResource& resource, ResourceState stateAfter) const;
-    void ResolveFirstTransitions() const;
-    D3dCommandList();
-    D3dCommandList(ID3D12GraphicsCommandList* pCommandList, ID3D12CommandAllocator* pCommandAllocator);
-
-    // we dont manage the commandQueue and commandAllocator objects, just keep a reference to them
+    void SetShader(const Shader* shader);
+    
     ID3D12CommandAllocator* mCommandAllocator;
-    RenderContext* mRenderContext;
-    ComPtr<ID3D12GraphicsCommandList> mCommandList;
+    ResourceStateTracker mResourceStateTracker;
 };
-
-D3dCommandList CreateD3dCommandList(ID3D12Device* pDevice, ID3D12CommandAllocator* pCommandAllocator, D3D12_COMMAND_LIST_TYPE type);
 #endif

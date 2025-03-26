@@ -12,8 +12,12 @@
 #include <unordered_map>
 #include <functional>
 #include <string>
-#include <format>
+#include <array>
+#include <mutex>
 #include <vector>
+#include <shared_mutex>
+#include <iostream>
+#include <thread>
 #include <exception>
 
 #ifdef WIN32
@@ -47,7 +51,7 @@
 #pragma comment(lib, "dinput8.lib")
 #pragma comment(lib, "dxguid.lib")
 
-#ifdef _DEBUG || DEBUG
+#if defined(DEBUG) or defined(_DEBUG)
 typedef HRESULT(WINAPI* pDXGIGetDebugInterface)(REFIID riid, void** pDebug);
 #endif
 
@@ -81,14 +85,19 @@ concept Numeric = std::is_arithmetic_v<T>;
 
 #ifdef UNICODE
 #define TO_STRING(str) std::to_wstring(str)
-#define TEXT(x) WIDEN2(x)
-using String = std::wstring;
-using Char = wchar_t;
 #define __REFLECTION_FUNC_NAME__ __FUNCTIONW__
 #define __REFLECTION_FILE_NAME__ __FILEW__
+#ifndef TEXT
+#define TEXT(x) WIDEN2(x)
+#endif
+#define DEBUG_WARN(message) std::wcout << TEXT("[ WARN | ") << __REFLECTION_FILE_NAME__ << " | " << __REFLECTION_FUNC_NAME__ << " ]" << TEXT(##message);
+using String = std::wstring;
+using Char = wchar_t;
 #else
 #define TO_STRING(str) std::to_string(str)
+#ifndef TEXT
 #define TEXT(x) x
+#endif
 using String = std::string;
 using Char = char;
 #define __REFLECTION_FUNC_NAME_ __FUNCTION__

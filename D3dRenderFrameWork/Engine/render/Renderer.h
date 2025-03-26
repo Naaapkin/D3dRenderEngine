@@ -1,9 +1,11 @@
 ﻿#pragma once
-#include <Engine/pch.h>
+#include "Engine/pch.h"
 
 class Renderer
 {
 public:
+    static Renderer* sRenderer();
+    static void sInitialize();
     virtual ~Renderer();
     
     DELETE_COPY_CONSTRUCTOR(Renderer)
@@ -14,5 +16,3 @@ public:
 protected:
     Renderer() = default;
 };
-
-Renderer* gRenderer();

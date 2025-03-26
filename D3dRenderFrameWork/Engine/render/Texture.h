@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include <Engine/pch.h>
+#include "Engine/pch.h"
 
 enum class TextureFormat : uint8_t
 {
@@ -34,14 +34,13 @@ enum class TextureFormat : uint8_t
     R32_FLOAT = DXGI_FORMAT_R32_FLOAT,
     R32G32_FLOAT = DXGI_FORMAT_R32G32_FLOAT,
     R32G32B32A32_FLOAT = DXGI_FORMAT_R32G32B32A32_FLOAT,
+    D24_UNORM_S8_UINT = DXGI_FORMAT_D24_UNORM_S8_UINT,
 };
 
 enum class TextureType : uint8_t
 {
-    TEXTURE_2D,
-    TEXTURE_3D,
-    TEXTURE_CUBE,
-    TEXTURE_ARRAY,
+    TEXTURE_2D = D3D12_RESOURCE_DIMENSION_TEXTURE2D,
+    TEXTURE_3D = D3D12_RESOURCE_DIMENSION_TEXTURE3D,
 };
 
 class Texture
@@ -49,8 +48,8 @@ class Texture
 public:
     TextureType Type() const;
     TextureFormat Format() const;
-    uint32_t Width() const;
-    uint32_t Height() const;
+    uint64_t Width() const;
+    uint64_t Height() const;
     uint32_t Depth() const;
     uint8_t MipLevels() const;
     uint8_t SampleCount() const;
@@ -59,7 +58,6 @@ public:
             TextureFormat format, uint8_t numMips = 1,
             uint8_t sampleCount = 1, uint8_t sampleQuality = 0);
     Texture(const Texture& o) noexcept;
-    Texture(TextureType type, const D3D12_RESOURCE_DESC& desc);
 
     virtual const byte* dataPtr() const = 0;
     virtual const byte* subDatePtr(uint8_t mip) const = 0;
@@ -70,6 +68,7 @@ public:
     Texture& operator=(const Texture& o) noexcept;
     
 protected:
+    Texture(TextureType type, const D3D12_RESOURCE_DESC& desc);
     Texture();
 
 private:
@@ -77,9 +76,9 @@ private:
     TextureType mType;
     TextureFormat mFormat;
     uint8_t mNumMips;
-    uint32_t mWidth;
-    uint32_t mHeight;
-    uint32_t mDepth;
     uint8_t mSampleCount;
     uint8_t mSampleQuality;
+    uint32_t mDepth;
+    uint64_t mWidth;
+    uint64_t mHeight;
 };

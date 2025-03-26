@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="Debug|Win32">
+    <ProjectConfiguration Include="Debug|ORBIS">
       <Configuration>Debug</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>ORBIS</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="Release|Win32">
+    <ProjectConfiguration Include="Release|ORBIS">
       <Configuration>Release</Configuration>
-      <Platform>Win32</Platform>
+      <Platform>ORBIS</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Debug|x64">
       <Configuration>Debug</Configuration>
@@ -28,19 +28,6 @@
   <PropertyGroup>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <WholeProgramOptimization>true</WholeProgramOptimization>
-    <CharacterSet>Unicode</CharacterSet>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
@@ -54,16 +41,16 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|ORBIS'">
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|ORBIS'">
+    <PlatformToolset>v143</PlatformToolset>
+  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -72,33 +59,12 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>Disabled</Optimization>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
@@ -112,25 +78,6 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <GenerateDebugInformation>true</GenerateDebugInformation>
-    </Link>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <WarningLevel>Level3</WarningLevel>
-      <Optimization>MaxSpeed</Optimization>
-      <FunctionLevelLinking>true</FunctionLevelLinking>
-      <IntrinsicFunctions>true</IntrinsicFunctions>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ConformanceMode>true</ConformanceMode>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-    </ClCompile>
-    <Link>
-      <SubSystem>Console</SubSystem>
-      <EnableCOMDATFolding>true</EnableCOMDATFolding>
-      <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -164,24 +111,25 @@
     <ClInclude Include="Engine\math\PC\Vector3.h" />
     <ClInclude Include="Engine\pch.h" />
     <ClInclude Include="Engine\render\d3dx12.h" />
-    <ClInclude Include="Engine\render\Mesh.h" />
+    <ClInclude Include="Engine\render\MeshData.h" />
     <ClInclude Include="Engine\render\PC\Core\D3dCommandList.h" />
-    <ClInclude Include="Engine\render\PC\Core\D3dGraphicContext.h" />
+    <ClInclude Include="Engine\render\PC\Core\D3dCommandListPool.h" />
+    <ClInclude Include="Engine\render\PC\Core\D3dContext.h" />
+    <ClInclude Include="Engine\render\PC\Core\D3dObject.h" />
+    <ClInclude Include="Engine\render\PC\Core\D3dRenderer.h" />
     <ClInclude Include="Engine\render\PC\Core\DescriptorHeap.h" />
     <ClInclude Include="Engine\render\PC\Core\RenderContext.h" />
-    <ClInclude Include="Engine\render\PC\D3dRenderer.h" />
+    <ClInclude Include="Engine\render\PC\Core\ResourceStateTracker.h" />
     <ClInclude Include="Engine\render\PC\D3dUtil.h" />
-    <ClInclude Include="Engine\render\PC\Data.h" />
     <ClInclude Include="Engine\render\PC\dxgi.h" />
-    <ClInclude Include="Engine\render\PC\ScriptableRenderPath\RenderPass.h" />
-    <ClInclude Include="Engine\render\PC\ScriptableRenderPath\RenderPath.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\D3dResource.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\ResourceHandle.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\StaticBuffer.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\FrameResource.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\RenderTexture.h" />
-    <ClInclude Include="Engine\render\PC\RenderResource\DynamicBuffer.h" />
-    <ClInclude Include="Engine\render\PC\Shader.h" />
+    <ClInclude Include="Engine\render\PC\Resource\D3dAllocator.h" />
+    <ClInclude Include="Engine\render\PC\Resource\DynamicBuffer.h" />
+    <ClInclude Include="Engine\render\PC\Resource\Material.h" />
+    <ClInclude Include="Engine\render\PC\Resource\RenderItem.h" />
+    <ClInclude Include="Engine\render\PC\Resource\RenderTexture.h" />
+    <ClInclude Include="Engine\render\PC\Resource\Shader.h" />
+    <ClInclude Include="Engine\render\PC\Resource\StaticBuffer.h" />
+    <ClInclude Include="Engine\render\PC\Resource\D3dResource.h" />
     <ClInclude Include="Engine\render\RawTexture.h" />
     <ClInclude Include="Engine\render\Renderer.h" />
     <ClInclude Include="Engine\render\Texture.h" />
@@ -189,16 +137,11 @@
     <ClInclude Include="Engine\Window\WFrame.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="assets\Shaders\PC\common\LightConstants.hlsl" />
-    <None Include="assets\Shaders\PC\common\Transform.hlsl" />
-    <None Include="assets\Shaders\PC\PixelShader\opaque.hlsl" />
-    <None Include="assets\Shaders\PC\VertexShader\pixel.hlsl" />
     <ClCompile Include="Engine\common\PC\WFunc.cpp" />
     <ClCompile Include="Engine\game\EventDispatcher.cpp" />
     <ClCompile Include="Engine\game\PC\EventDispatcherWin.cpp" />
     <ClCompile Include="Engine\math\PC\Vector2.cpp" />
     <ClCompile Include="Engine\math\PC\Vector3.cpp" />
-    <ClCompile Include="Engine\render\Mesh.cpp" />
     <ClCompile Include="Engine\render\PC\Core\D3dCommandList.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -274,7 +217,8 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <ClCompile Include="Engine\render\PC\Core\D3dGraphicContext.cpp">
+    <ClCompile Include="Engine\render\PC\Core\D3dCommandListPool.cpp" />
+    <ClCompile Include="Engine\render\PC\Core\D3dContext.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <Optimization>Disabled</Optimization>
@@ -349,7 +293,7 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <ClCompile Include="Engine\render\PC\Core\DescriptorHeap.cpp">
+    <ClCompile Include="Engine\render\PC\Core\D3dRenderer.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <Optimization>Disabled</Optimization>
@@ -499,13 +443,11 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <ClCompile Include="Engine\render\PC\D3dRenderer.cpp" />
+    <ClCompile Include="Engine\render\PC\Core\ResourceStateTracker.cpp" />
     <ClCompile Include="Engine\render\PC\D3dUtil.cpp" />
-    <ClCompile Include="Engine\render\PC\ScriptableRenderPath\RenderPass.cpp" />
-    <ClCompile Include="Engine\render\PC\ScriptableRenderPath\RenderPath.cpp" />
-    <ClCompile Include="Engine\render\PC\RenderResource\D3dResource.cpp" />
-    <ClCompile Include="Engine\render\PC\RenderResource\StaticBuffer.cpp" />
-    <ClCompile Include="Engine\render\PC\RenderResource\FrameResource.cpp">
+    <ClCompile Include="Engine\render\PC\Resource\D3dAllocator.cpp" />
+    <ClCompile Include="Engine\render\PC\Resource\Material.cpp" />
+    <ClCompile Include="Engine\render\PC\Resource\RenderTexture.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <Optimization>Disabled</Optimization>
@@ -580,9 +522,81 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <ClCompile Include="Engine\render\PC\RenderResource\RenderTexture.cpp" />
-    <ClCompile Include="Engine\render\PC\RenderResource\DynamicBuffer.cpp" />
-    <ClCompile Include="Engine\render\PC\Shader.cpp" />
+    <ClCompile Include="Engine\render\PC\Resource\Shader.cpp">
+      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <Optimization>Disabled</Optimization>
+      <SupportJustMyCode>true</SupportJustMyCode>
+      <AssemblerOutput>NoListing</AssemblerOutput>
+      <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
+      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
+      <BrowseInformation>false</BrowseInformation>
+      <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
+      <CompileAs>Default</CompileAs>
+      <ConformanceMode>true</ConformanceMode>
+      <DiagnosticsFormat>Column</DiagnosticsFormat>
+      <DisableLanguageExtensions>false</DisableLanguageExtensions>
+      <ErrorReporting>Prompt</ErrorReporting>
+      <ExpandAttributedSource>false</ExpandAttributedSource>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <EnableASAN>false</EnableASAN>
+      <EnableFuzzer>false</EnableFuzzer>
+      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Precise</FloatingPointModel>
+      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
+      <GenerateModuleDependencies>false</GenerateModuleDependencies>
+      <GenerateSourceDependencies>false</GenerateSourceDependencies>
+      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
+      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
+      <LanguageStandard>Default</LanguageStandard>
+      <LanguageStandard_C>Default</LanguageStandard_C>
+      <MinimalRebuild>false</MinimalRebuild>
+      <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
+      <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
+      <OmitDefaultLibName>false</OmitDefaultLibName>
+      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
+      <ObjectFileName>x64\Debug\</ObjectFileName>
+      <CallingConvention>Cdecl</CallingConvention>
+      <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderOutputFile>x64\Debug\D3dRenderFrameWork.pch</PrecompiledHeaderOutputFile>
+      <PreprocessToFile>false</PreprocessToFile>
+      <PreprocessKeepComments>false</PreprocessKeepComments>
+      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
+      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
+      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
+      <ShowIncludes>false</ShowIncludes>
+      <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
+      <SuppressStartupBanner>true</SuppressStartupBanner>
+      <BufferSecurityCheck>true</BufferSecurityCheck>
+      <SmallerTypeCheck>false</SmallerTypeCheck>
+      <SpectreMitigation>false</SpectreMitigation>
+      <StructMemberAlignment>Default</StructMemberAlignment>
+      <TrackerLogDirectory>x64\Debug\D3dRende.2D9A09AD.tlog\</TrackerLogDirectory>
+      <TranslateIncludes>false</TranslateIncludes>
+      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
+      <TreatWarningAsError>false</TreatWarningAsError>
+      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
+      <UseFullPaths>true</UseFullPaths>
+      <WarningLevel>Level3</WarningLevel>
+      <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+      <IntelJCCErratum>false</IntelJCCErratum>
+      <BuildStlModules>false</BuildStlModules>
+      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
+      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
+      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
+      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;DEBUG;_DEBUG;_CONSOLE;</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
+      <LinkCompiled>true</LinkCompiled>
+    </ClCompile>
     <ClCompile Include="Engine\render\RawTexture.cpp" />
     <ClCompile Include="Engine\render\Texture.cpp" />
     <ClCompile Include="Engine\Window\Frame.cpp" />
@@ -662,6 +676,14 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="assets\generated\" />
+    <Folder Include="assets\shaders\source\common\" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="assets\configurations\config.ini" />
+    <None Include="assets\configurations\shader.manif" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

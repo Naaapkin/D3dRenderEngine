@@ -1,6 +1,6 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <Engine/pch.h>
+#include "Engine/pch.h"
 
 // frame interface
 class Frame
@@ -41,6 +41,4 @@ private:
     bool mIsFullScreen;
     bool mIsClosed;
 };
-
-Frame& gFrame();
 #endif

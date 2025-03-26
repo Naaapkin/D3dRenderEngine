@@ -10,12 +10,12 @@ TextureFormat Texture::Format() const
     return mFormat;
 }
 
-uint32_t Texture::Width() const
+uint64_t Texture::Width() const
 {
     return mWidth;
 }
 
-uint32_t Texture::Height() const
+uint64_t Texture::Height() const
 {
     return mHeight;
 }
@@ -43,21 +43,21 @@ uint8_t Texture::SampleQuality() const
 Texture::Texture(TextureType type, uint64_t width, uint64_t height, uint32_t depth, TextureFormat format,
     uint8_t numMips, uint8_t sampleCount, uint8_t sampleQuality) :
     mType(type), mFormat(format), mNumMips(numMips),
-    mWidth(width), mHeight(height), mDepth(depth),
-    mSampleCount(sampleCount), mSampleQuality(sampleQuality) { }
+    mSampleCount(sampleCount), mSampleQuality(sampleQuality), mDepth(depth),
+    mWidth(width), mHeight(height) { }
 
 Texture::Texture(const Texture& o) noexcept = default;
 
 Texture::Texture(TextureType type, const D3D12_RESOURCE_DESC& desc) :
-        mType(type), mFormat(static_cast<TextureFormat>(desc.Format)), mNumMips(static_cast<uint8_t>(desc.MipLevels)), mWidth(desc.Width),
-        mHeight(desc.Height), mDepth(desc.DepthOrArraySize),
-        mSampleCount(static_cast<uint8_t>(desc.SampleDesc.Count)), mSampleQuality(static_cast<uint8_t>(desc.SampleDesc.Quality)) { }
+        mType(type), mFormat(static_cast<TextureFormat>(desc.Format)), mNumMips(static_cast<uint8_t>(desc.MipLevels)), mSampleCount(static_cast<uint8_t>(desc.SampleDesc.Count)),
+        mSampleQuality(static_cast<uint8_t>(desc.SampleDesc.Quality)), mDepth(desc.DepthOrArraySize),
+        mWidth(desc.Width), mHeight(desc.Height) { }
 
 Texture::Texture() :
     mType(), mFormat(),
-    mNumMips(), mWidth(), mHeight(),
-    mDepth(), mSampleCount(),
-    mSampleQuality() { }
+    mNumMips(), mSampleCount(), mSampleQuality(),
+    mDepth(), mWidth(),
+    mHeight() { }
 
 Texture::~Texture() = default;
 

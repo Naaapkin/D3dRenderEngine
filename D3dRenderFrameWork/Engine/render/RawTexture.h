@@ -1,7 +1,7 @@
 ﻿#pragma once
 #ifdef WIN32
-#include <Engine/pch.h>
-#include <Engine/render/Texture.h>
+#include "Engine/pch.h"
+#include "Engine/render/Texture.h"
 
 class RawTexture : public Texture
 {
