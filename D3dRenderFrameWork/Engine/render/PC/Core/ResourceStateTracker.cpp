@@ -10,6 +10,17 @@ StateConverter::~StateConverter()
     delete[] mFirstDstStates;
 }
 
+StateConversion::StateConversion(): mIdx(0xffffffff), mSrcState(ResourceState::UNKNOWN), mDstState(ResourceState::UNKNOWN)
+{}
+
+StateConversion::StateConversion(uint64_t idx, ResourceState srcState, ResourceState dstState): mIdx(idx), mSrcState(srcState), mDstState(dstState)
+{}
+
+bool StateConversion::isGeneralConversion() const
+{
+    return mIdx == 0xffffffff;
+}
+
 bool StateConverter::isFoldedBeforeConversion() const
 {
     return mIsFolded ^ mFoldStateChanged;
@@ -25,7 +36,7 @@ bool StateConverter::isCurrentFolded() const
 //              else: general conversion for total resource
 std::vector<StateConversion> StateConverter::convert(ResourceState dstState)
 {
-    std::vector<StateConversion> conversions{0};
+    std::vector<StateConversion> conversions;
     uint64_t numSubResources = mResource->subResourceCount();
     if (!mIsFolded)
     {
@@ -34,8 +45,8 @@ std::vector<StateConversion> StateConverter::convert(ResourceState dstState)
         for (uint64_t i = 0; i < numSubResources; ++i)
         {
             auto& conversion = conversions[numExplicitConversions];
-            conversion.idx = i;
-            conversion.dstState = dstState;
+            conversion.mIdx = i;
+            conversion.mDstState = dstState;
             numExplicitConversions += convertSubImpl(conversion);
         }
         tryFold();
@@ -46,20 +57,21 @@ std::vector<StateConversion> StateConverter::convert(ResourceState dstState)
     // 1.mLastStates[0] != ResourceState::UNKNOWN: first conversion -- resolved on execution.
     // 2.gImplicitTransit: check if this conversion can be done implicitly -- we need to return if this conversion should be done explicitly, so negate it.
     bool isFirstConversion = srcState == ResourceState::UNKNOWN;
-    bool isExplicitConversion = ::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
+    bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
     mFirstDstStates[0] = isFirstConversion ? dstState : mFirstDstStates[0];
     if (!isFirstConversion && isExplicitConversion)
     {
         conversions.reserve(1);
         conversions.emplace_back(StateConversion{0xffffffff, srcState, dstState});
     }
+    srcState = dstState;
     return std::move(conversions);
 }
 
 // returns wether the conversion should be done instantly and explicitly.
 // conversion - conversion.second should be filled with the dst state.
 //              conversion.first will get the src state if returns true. 
-bool StateConverter::convertSub(uint64_t idx, StateConversion& conversion)
+bool StateConverter::convertSub(StateConversion& conversion)
 {
     if (mIsFolded) unfold();
     return convertSubImpl(conversion);
@@ -67,38 +79,56 @@ bool StateConverter::convertSub(uint64_t idx, StateConversion& conversion)
 
 bool StateConverter::convertSubImpl(StateConversion& conversion) const
 {
-    auto& dstState = conversion.dstState;
-    auto& srcState = mLastStates[conversion.idx];
+    auto& dstState = conversion.mDstState;
+    auto& srcState = mLastStates[conversion.mIdx];
     bool isFirstConversion = srcState == ResourceState::UNKNOWN;
-    bool isExplicitConversion = ::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
-    mFirstDstStates[conversion.idx] = isFirstConversion ? dstState : mFirstDstStates[conversion.idx];
+    bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
+    mFirstDstStates[conversion.mIdx] = isFirstConversion ? dstState : mFirstDstStates[conversion.mIdx];
     const bool ret = !isFirstConversion && isExplicitConversion; 
     if (ret)
     {
-        conversion.srcState = srcState;       // fill the src state
-        srcState = dstState;               // update current state
+        conversion.mSrcState = srcState;       // fill the src state
     }
+    srcState = dstState;
     return ret;
 }
 
-std::vector<StateConversion> StateConverter::preConvert()
+std::vector<StateConversion> StateConverter::preConvert() const
 {
     std::vector<StateConversion> conversions(0);
-    if (isFoldedBeforeConversion() && mFirstDstStates[0] != ResourceState::UNKNOWN)
+    if (isFoldedBeforeConversion())
     {
-        return std::move(convert(mFirstDstStates[0]));
+        if (mFirstDstStates[0] == ResourceState::UNKNOWN) return conversions;
+        StateConversion conversion{};
+        conversion.mSrcState = mResource->resourceStates()[0];
+        conversion.mDstState = mFirstDstStates[0];
+        bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(conversion.mSrcState),
+                           *reinterpret_cast<uint32_t*>(&conversion.mDstState), mIsBufferOrSimultaneous);
+        if (isExplicitConversion)
+        {
+            conversions.reserve(1);
+            conversions.push_back(conversion);
+        }
+        return conversions;
     }
     uint64_t numSubResources = mResource->subResourceCount();
-    conversions.resize(numSubResources);
+    conversions.reserve(numSubResources);
     uint64_t numExplicitConversions = 0;
     for (uint64_t i = 0; i < numSubResources; ++i)
     {
-        auto& conversion = conversions[numExplicitConversions];
-        conversion.idx = i;
-        conversion.dstState = mFirstDstStates[i];
-        numExplicitConversions += mFirstDstStates[i] != ResourceState::UNKNOWN && convertSubImpl(conversion);
+        if (mFirstDstStates[i] == ResourceState::UNKNOWN) continue;
+        StateConversion conversion{i};
+        conversion.mSrcState = mResource->resourceStates()[i];
+        conversion.mDstState = mFirstDstStates[i];
+        if (!::gImplicitTransit(static_cast<uint32_t>(conversion.mSrcState),
+                                                     *reinterpret_cast<uint32_t*>(&conversion.mDstState),
+                                                     mIsBufferOrSimultaneous))
+        {
+            conversions.push_back(conversion);
+            numExplicitConversions++;
+        }
     }
-    return std::move(conversions);
+    return conversions;
 }
 
 std::vector<StateConversion> StateConverter::merge(StateConverter& stateConverter)
@@ -138,8 +168,8 @@ std::vector<StateConversion> StateConverter::merge(StateConverter& stateConverte
         for (uint64_t i = 0; i < numSubResources; ++i)
         {
             auto& conversion = conversions[numExplicitConversions];
-            conversion.idx = i;
-            conversion.dstState = mFirstDstStates[i];
+            conversion.mIdx = i;
+            conversion.mDstState = mFirstDstStates[i];
             numExplicitConversions += mFirstDstStates[i] != ResourceState::UNKNOWN && convertSubImpl(conversion);
         }
     }
@@ -154,7 +184,6 @@ std::vector<StateConversion> StateConverter::merge(StateConverter& stateConverte
 void StateConverter::applyConvert(bool decayToCommon)
 {
     uint64_t numSubResources = mResource->subResourceCount();
-    uint64_t num = mIsFolded ? 1 : numSubResources;
     decayToCommon = decayToCommon || mIsBufferOrSimultaneous;
     auto* resourceStates = mResource->resourceStates();
     if (mIsFolded || decayToCommon)
@@ -167,8 +196,8 @@ void StateConverter::applyConvert(bool decayToCommon)
     }
 
     delete[] mFirstDstStates;
-    mFirstDstStates = new ResourceState[num];
-    std::fill_n(mFirstDstStates, num, ResourceState::UNKNOWN);
+    mFirstDstStates = new ResourceState[numSubResources];
+    std::fill_n(mFirstDstStates, numSubResources, ResourceState::UNKNOWN);
     mFoldStateChanged = false;
 }
 
@@ -182,11 +211,38 @@ StateConverter::StateConverter(D3dResource* pResource, bool mGeneralConversion) 
     auto desc = mResource->nativePtr()->GetDesc();
     mIsBufferOrSimultaneous = desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER || desc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS;
     uint64_t numSubresources = mResource->subResourceCount();
-    uint64_t num = mGeneralConversion ? 1 : numSubresources;
-    mFirstDstStates = new ResourceState[num];
-    mLastStates = new ResourceState[num];
-    std::fill_n(mFirstDstStates, num, ResourceState::UNKNOWN);
-    memcpy(mResource->resourceStates(), mFirstDstStates, numSubresources * sizeof(ResourceState));
+    mFirstDstStates = new ResourceState[numSubresources];
+    mLastStates = new ResourceState[numSubresources];
+    std::fill_n(mFirstDstStates, numSubresources, ResourceState::UNKNOWN);
+    std::fill_n(mLastStates, numSubresources, ResourceState::UNKNOWN);
+}
+
+StateConverter::StateConverter(StateConverter&& other) noexcept :
+    mResource(other.mResource),
+    mFirstDstStates(other.mFirstDstStates), mLastStates(other.mLastStates),
+    mIsBufferOrSimultaneous(other.mIsBufferOrSimultaneous), mFoldStateChanged(other.mFoldStateChanged), mIsFolded(other.mIsFolded)
+{
+}
+
+StateConverter& StateConverter::operator=(StateConverter&& other) noexcept
+{
+    if (this !=&other )
+    {
+        mResource = other.mResource;
+        mFirstDstStates = other.mFirstDstStates;
+        mLastStates = other.mLastStates;
+        mIsBufferOrSimultaneous = other.mIsBufferOrSimultaneous;
+        mIsFolded = other.mIsFolded;
+        mFoldStateChanged = other.mFoldStateChanged;
+
+        other.mResource = nullptr;
+        other.mFirstDstStates = nullptr;
+        other.mLastStates = nullptr;
+        other.mIsFolded = false;
+        other.mIsBufferOrSimultaneous = false;
+        other.mFoldStateChanged = false;
+    }
+    return *this;
 }
 
 void StateConverter::unfold()
@@ -229,7 +285,7 @@ void ResourceStateTracker::track(D3dResource& resource)
 #if defined(DEBUG) or defined(_DEBUG)
     ASSERT(resource.nativePtr(), TEXT("resource is invalid"));
 #endif
-    mStateConverters.try_emplace(resource.nativePtr(), StateConverter{ &resource });
+    mStateConverters.try_emplace(resource.nativePtr(), &resource);
 }
 
 std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::rightJoin(ResourceStateTracker& other)
@@ -245,12 +301,12 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::rightJoin(ResourceStat
         }
         auto&& conversions = pair.second.merge(*pConverter);
         if (conversions.empty()) continue;
-        if (conversions[0].idx == 0xffffffff)
+        if (conversions[0].mIdx == 0xffffffff)
         {
             auto& conversion = conversions[0];
             barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first,
-                static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-                static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
                 D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
             continue;
         }
@@ -258,12 +314,12 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::rightJoin(ResourceStat
         {
             const auto& conversion = conversions[i];
             barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first,
-                                                               static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-                                                               static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
-                                                               conversion.idx));
+                                                               static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+                                                               static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
+                                                               conversion.mIdx));
         }
     }
-    other.stopTracking();
+    other.cancel();
     return barriers;
 }
 
@@ -274,11 +330,11 @@ D3D12_RESOURCE_BARRIER ResourceStateTracker::convertSubResourceState(ID3D12Resou
     ASSERT(converter, TEXT("resource not declared as used\n"));
 #endif
     StateConversion conversion{subResourceIndex, ResourceState::UNKNOWN, dstState};
-    if (converter->convertSub(subResourceIndex, conversion))
+    if (converter->convertSub(conversion))
     {
         return CD3DX12_RESOURCE_BARRIER::Transition(pResource,
-            static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-            static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
             subResourceIndex);
     }
     return {};
@@ -293,12 +349,12 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::convertResourceState(I
 #endif
     auto&& conversions = converter->convert(dstState);
     if (conversions.empty()) return barriers;
-    if (conversions[0].idx == 0xffffffff)
+    if (conversions[0].mIdx == 0xffffffff)
     {
         auto& conversion = conversions[0];
         barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource,
-            static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-            static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
             D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
         return barriers;
     }
@@ -307,14 +363,14 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::convertResourceState(I
     {
         const auto& conversion = conversions[i];
         barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource,
-            static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-            static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
-            conversion.idx));
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+            static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
+            conversion.mIdx));
     }
     return barriers;
 }
 
-std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::buildPreTransitions()
+std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::buildPreTransitions() const
 {
     std::vector<D3D12_RESOURCE_BARRIER> barriers{};
     barriers.reserve(64);   // TODO: replace this magic-number(initial capacity)
@@ -323,20 +379,20 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::buildPreTransitions()
         auto& converter = pair.second;
         auto&& conversions = std::move(converter.preConvert());
         if (conversions.empty()) continue;
-        if (conversions[0].idx == 0xffffffff)
+        if (conversions[0].mIdx == 0xffffffff)
         {
             auto& conversion = conversions[0];
             barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first,
-                static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-                static_cast<D3D12_RESOURCE_STATES>(conversion.dstState)));
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState)));
             continue;
         }
         for (const auto& conversion : conversions)
         {
             barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first,
-                static_cast<D3D12_RESOURCE_STATES>(conversion.srcState),
-                static_cast<D3D12_RESOURCE_STATES>(conversion.dstState),
-                conversion.idx));
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
+                static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
+                conversion.mIdx));
         }
     }
     return barriers;
@@ -347,7 +403,16 @@ std::unordered_map<ID3D12Resource*, StateConverter>& ResourceStateTracker::conve
     return mStateConverters;
 }
 
-void ResourceStateTracker::stopTracking()
+void ResourceStateTracker::stopTracking(bool isCopyQueue)
+{
+    for (auto& pair : mStateConverters)
+    {
+        pair.second.applyConvert(isCopyQueue);
+    }
+    mStateConverters.clear();
+}
+
+void ResourceStateTracker::cancel()
 {
     mStateConverters.clear();
 }
@@ -359,11 +424,11 @@ StateConverter* ResourceStateTracker::getStateConverter(ID3D12Resource* pResourc
     return &it->second;
 }
 
-// void ResourceStateTracker::reset(D3dCommandListType type)
+// void ResourceStateTracker::reset(D3dCommandListType mType)
 // {
 //     for (auto& converter : mStateConverters)
 //     {
-//         converter.second.applyConvert(type == D3dCommandListType::COPY);
+//         converter.second.applyConvert(mType == D3dCommandListType::COPY);
 //     }
 //     mStateConverters.clear();
 // }

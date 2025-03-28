@@ -2,9 +2,7 @@
 #include "D3dCommandList.h"
 
 #include "Engine/common/Exception.h"
-#include "Engine/render/PC/Resource/D3dAllocator.h"
 #include "Engine/render/PC/Resource/D3dResource.h"
-#include "Engine/render/PC/Resource/DynamicBuffer.h"
 #include "Engine/render/PC/Resource/StaticBuffer.h"
 
 class DynamicBuffer;
@@ -50,9 +48,9 @@ void D3dCommandList::transition(D3dResource& resource, ResourceState dstState)
 {
     ID3D12Resource* pResource = resource.nativePtr();
     mResourceStateTracker.track(resource);
-#if defined(DEBUG) or defined(_DEBUG)
-    ASSERT(pResource, TEXT("transiting resource is invalid\n"));
-#endif
+// #if defined(DEBUG) or defined(_DEBUG)
+//     ASSERT(pResource, TEXT("transiting resource is invalid\n"));
+// #endif
     auto&& conversions = mResourceStateTracker.convertResourceState(pResource, dstState);
     nativePtr()->ResourceBarrier(conversions.size(), conversions.data());
 }
@@ -74,14 +72,10 @@ D3dCommandList::D3dCommandList(ID3D12GraphicsCommandList* pCommandList, ID3D12Co
 
 // update data in the default buffer
 // remark: no auto resource state transition
-void D3dCommandList::updateBufferResource(
-    const D3dAllocator& allocator,
-    const StaticBuffer& buffer, const byte* data) const
+void D3dCommandList::copyResource(StaticBuffer& dst, const D3dResource& src)
 {
-    uint64_t width = buffer.nativePtr()->GetDesc().Width;
-    DynamicBuffer* stagingBuffer = allocator.allocDynamicBuffer(width);
-    memcpy(stagingBuffer->mappedPointer(), data, width);
-    nativePtr()->CopyResource(buffer.nativePtr(), stagingBuffer->nativePtr());
+    transition(dst, ResourceState::COPY_DEST);
+    nativePtr()->CopyResource(dst.nativePtr(), src.nativePtr());
 }
 
 void D3dCommandList::close() const
@@ -89,21 +83,25 @@ void D3dCommandList::close() const
     nativePtr()->Close();
 }
 
+void D3dCommandList::clear()
+{
+    mResourceStateTracker.cancel();
+    nativePtr()->ClearState(nullptr);
+}
+
 void D3dCommandList::reset()
 {
     // TODO: wait for fence
-    nativePtr()->Close();
     nativePtr()->Reset(mCommandAllocator, nullptr);
-    mResourceStateTracker.stopTracking();
+    mResourceStateTracker.cancel();
 }
 
 void D3dCommandList::reset(ID3D12CommandAllocator* pAllocator)
 {
     // TODO: 
-    nativePtr()->Close();
     nativePtr()->Reset(pAllocator, nullptr);
     mCommandAllocator = pAllocator;
-    mResourceStateTracker.stopTracking();
+    mResourceStateTracker.cancel();
 }
 
 void D3dCommandList::setRenderTargets(const RenderTexture2D* pRenderTarget, uint64_t numRenderTargets, const RenderTexture2D& depthStencil)

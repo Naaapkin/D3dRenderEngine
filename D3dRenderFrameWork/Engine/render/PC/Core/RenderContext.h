@@ -18,7 +18,7 @@ public:
     const RenderTexture2D* depthStencilBuffer() const;
     void setCommandQueue(ID3D12CommandQueue* pCommandQueue);
     void executeCommandLists(const std::vector<D3dCommandList*>& commandLists) const;
-    void executeCommandList(D3dCommandList*& commandList) const;
+    void executeCommandList(D3dCommandList* commandList) const;
     void reset(ID3D12CommandQueue* pCommandQueue);
 
     RenderContext();
@@ -31,7 +31,6 @@ public:
 
 private:    
     ID3D12CommandQueue* mCommandQueue;
-    std::vector<D3dCommandList*> mPendingCommandLists;
     const RenderTexture2D* mRenderTargets;
     const RenderTexture2D* mDepthStencilBuffer;
     uint8_t mNumTargetRenderTarget;

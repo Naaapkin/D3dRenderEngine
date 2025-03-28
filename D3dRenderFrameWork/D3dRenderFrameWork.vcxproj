@@ -124,7 +124,6 @@
     <ClInclude Include="Engine\render\PC\dxgi.h" />
     <ClInclude Include="Engine\render\PC\Resource\D3dAllocator.h" />
     <ClInclude Include="Engine\render\PC\Resource\DynamicBuffer.h" />
-    <ClInclude Include="Engine\render\PC\Resource\Material.h" />
     <ClInclude Include="Engine\render\PC\Resource\RenderItem.h" />
     <ClInclude Include="Engine\render\PC\Resource\RenderTexture.h" />
     <ClInclude Include="Engine\render\PC\Resource\Shader.h" />
@@ -446,7 +445,6 @@
     <ClCompile Include="Engine\render\PC\Core\ResourceStateTracker.cpp" />
     <ClCompile Include="Engine\render\PC\D3dUtil.cpp" />
     <ClCompile Include="Engine\render\PC\Resource\D3dAllocator.cpp" />
-    <ClCompile Include="Engine\render\PC\Resource\Material.cpp" />
     <ClCompile Include="Engine\render\PC\Resource\RenderTexture.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>

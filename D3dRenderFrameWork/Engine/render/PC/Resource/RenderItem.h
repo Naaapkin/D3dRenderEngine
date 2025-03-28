@@ -1,25 +1,36 @@
 #pragma once
 #include "D3dResource.h"
-#include "Shader.h"
 #include "Engine/pch.h"
 #include "Engine/render/MeshData.h"
 
-struct Material
+struct alignas(256) TransformConstants
 {
+    DirectX::XMMATRIX mModel;
+    DirectX::XMMATRIX mView;
+    DirectX::XMMATRIX mProjection;
+};
+
+class Material
+{
+public:
     Shader* shader;
-    std::vector<ResourceHandle> mConstantBuffers;
+    std::vector<std::pair<uint8_t, std::vector<byte>>> mConstants;   // registerId-constant pair
+    std::vector<std::pair<uint8_t, ResourceHandle>> mTextures;
 };
 
 struct RenderItem
 {
-    DirectX::XMFLOAT4X4 mModel;
+    RenderItem() : mModel(DirectX::XMMatrixIdentity()), mMaterial(nullptr) {}
+    RenderItem(DirectX::FXMMATRIX model, Material* material, MeshData&& meshData) : mModel(model), mMeshData(std::move(meshData)), mMaterial(material) {}
+    
+    DirectX::XMMATRIX mModel;
     MeshData mMeshData;
-    Material mMaterial;
+    Material* mMaterial;
 };
 
-struct RenderList
+struct RenderList final
 {
-    DirectX::XMFLOAT4X4 mView;
-    DirectX::XMFLOAT4X4 mProj;
+    DirectX::XMMATRIX mView;
+    DirectX::XMMATRIX mProj;
     std::vector<RenderItem> mRenderItems;
 };

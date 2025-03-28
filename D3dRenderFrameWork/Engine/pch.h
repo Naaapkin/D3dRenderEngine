@@ -90,7 +90,7 @@ concept Numeric = std::is_arithmetic_v<T>;
 #ifndef TEXT
 #define TEXT(x) WIDEN2(x)
 #endif
-#define DEBUG_WARN(message) std::wcout << TEXT("[ WARN | ") << __REFLECTION_FILE_NAME__ << " | " << __REFLECTION_FUNC_NAME__ << " ]" << TEXT(##message);
+#define WARN(message) std::wcout << TEXT("[ WARN | ") << __REFLECTION_FILE_NAME__ << " | " << __REFLECTION_FUNC_NAME__ << " ]" << TEXT(##message);
 using String = std::wstring;
 using Char = wchar_t;
 #else

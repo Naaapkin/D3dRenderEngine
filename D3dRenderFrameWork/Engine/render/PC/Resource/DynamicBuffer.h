@@ -9,6 +9,7 @@ class DynamicBuffer : public D3dResource
 public:
 	void updateRange(const byte* data, uint64_t startPos, uint64_t width) const;
 	byte* mappedPointer() const;
+	uint64_t size() const;
 	void release() override;
 	
 	DynamicBuffer();
@@ -45,6 +46,11 @@ inline uint8_t* DynamicBuffer::mappedPointer() const
 	ASSERT(nativePtr(), TEXT("accessing uninitialized upload buffer\n"));
 #endif
 	return mBufferMapper;
+}
+
+inline uint64_t DynamicBuffer::size() const
+{
+	return nativePtr()->GetDesc().Width;
 }
 
 inline void DynamicBuffer::release()

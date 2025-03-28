@@ -102,9 +102,9 @@ bool gImplicitTransit(const uint32_t stateBefore, uint32_t& stateAfter,
 #if defined(DEBUG) or defined(_DEBUG)
     ASSERT(((writeStateAfter - 1) & writeStateAfter && writeStateAfter) == 0, TEXT("cant transition to multi-write state"));
 #endif
-    if (((stateBefore | stateAfter) & DEPTH_RW) ||                          // depth read or write states cant implicit transition in or out
-		(writeStateBefore != 0 && (writeStateAfter ^ writeStateBefore)) ||  // write state change including no write to write, write to no write, write to another write
-		(!isBufferOrSimultaneous || (stateAfter & ~SHADER_COPY))) {         // if not buffer or simultaneous, cant transition to states except shader rw and copy src/dst
+    if (((stateBefore | stateAfter) & DEPTH_RW) ||                          // depth read or write states cant implicitly transition in or out
+		(stateBefore && (writeStateAfter ^ writeStateBefore)) ||            // for any transition from a promoted state to another state that has different write state, a explicit transition is needed.
+		(!isBufferOrSimultaneous && (stateAfter & ~SHADER_COPY))) {         // if not buffer or simultaneous, cant transition to states except shader rw and copy src/dst
         return false;
     }
 

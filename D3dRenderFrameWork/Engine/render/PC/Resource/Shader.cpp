@@ -72,10 +72,13 @@ bool Shader::sBindShaderProps(ID3D12ShaderReflection* pReflector)
 {
     D3D12_SHADER_DESC shaderDesc;
     D3D12_SHADER_INPUT_BIND_DESC bindingDesc;
+    D3D12_SHADER_BUFFER_DESC bufferDesc;
     pReflector->GetDesc(&shaderDesc);
     for (uint32_t i = 0; i < shaderDesc.ConstantBuffers; ++i)
     {
         pReflector->GetResourceBindingDesc(i, &bindingDesc);
+        auto* pBuffer = pReflector->GetConstantBufferByIndex(i);
+        pBuffer->GetDesc(&bufferDesc);
         String bufferName = AsciiToUtf8(bindingDesc.Name);
         mPropBindingReadMutex.lock_shared();
         auto it = mShaderPropBindings.find(bufferName);
@@ -84,11 +87,12 @@ bool Shader::sBindShaderProps(ID3D12ShaderReflection* pReflector)
         {
             mPropBindingReadMutex.lock();
             mShaderPropBindings.emplace(bufferName, bindingDesc.BindPoint);
+            mShaderPropSizes.emplace(bindingDesc.BindPoint, ::AlignUpToMul<uint64_t, 256>()(bufferDesc.Size));
             mPropBindingReadMutex.unlock();
         }
         else if (it->second != bindingDesc.BindPoint)
         {
-            DEBUG_WARN("conflict shader resource binding!");
+            WARN("conflict shader resource binding!");
         }
     }
     return true;
@@ -115,7 +119,7 @@ ID3DBlob* Shader::sNativeCompile(const std::string& name, const char* source, ui
         pReflector->Release();
         return bin;
     }
-    DEBUG_WARN("there are conflicts in shader resource bindings");
+    WARN("there are conflicts in shader resource bindings");
     pReflector->Release();
     return nullptr;
 }
@@ -249,6 +253,7 @@ Shader::~Shader()
     }
 }
 
+std::unordered_map<uint64_t, uint64_t> Shader::mShaderPropSizes{};
 std::unordered_map<String, uint8_t> Shader::mShaderPropBindings{};
 std::shared_mutex Shader::mPropBindingReadMutex{};
 #endif

@@ -3,10 +3,10 @@
 #include "Engine/pch.h"
 #include "Engine/render/PC/Core/D3dObject.h"
 
-struct ResourceHandle
+enum class ResourceLife : uint8_t
 {
-    uint64_t mIdx;
-    uint8_t mNumDirt;
+    TEMP,
+    PERSISTENT
 };
 
 enum class ResourceState : uint32_t
@@ -47,6 +47,8 @@ public:
     ResourceState* resourceStates() const;
 
     ID3D12Resource* nativePtr() const override;
+    D3D12_GPU_VIRTUAL_ADDRESS gpuHandle() const;
+    virtual uint64_t size() const;
     void release() override;
     ~D3dResource() override;
     
@@ -66,9 +68,45 @@ private:
     ResourceState* mResourceStates;
 };
 
+struct ResourceHandle
+{
+    uint64_t mIndex;
+
+    ResourceHandle() = default;
+    ResourceHandle(uint64_t index) : mIndex(index) { }
+
+    ~ResourceHandle() = default;
+    DEFAULT_COPY_CONSTRUCTOR(ResourceHandle)
+    DEFAULT_COPY_OPERATOR(ResourceHandle)
+    DEFAULT_MOVE_CONSTRUCTOR(ResourceHandle)
+    DEFAULT_MOVE_OPERATOR(ResourceHandle)
+};
+
 inline ID3D12Resource* D3dResource::nativePtr() const
 {
     return reinterpret_cast<ID3D12Resource*>(D3dObject::nativePtr());
+}
+
+inline D3D12_GPU_VIRTUAL_ADDRESS D3dResource::gpuHandle() const
+{
+    return nativePtr()->GetGPUVirtualAddress();
+}
+
+inline uint64_t D3dResource::size() const
+{
+    uint64_t size;
+    auto desc = nativePtr()->GetDesc();
+    device()->GetCopyableFootprints(
+        &desc, // D3D12_RESOURCE_DESC
+        0,            // FirstMip
+        1,            // NumMips
+        0,            // FirstArraySlice
+        nullptr,      // pLayouts (optional)
+        nullptr,      // pNumRows (optional)
+        nullptr,      // pRowSizeInBytes (optional)
+        &size  // 输出总大小
+    );
+    return size;
 }
 
 inline uint64_t D3dResource::subResourceCount() const
@@ -130,7 +168,10 @@ inline D3dResource::D3dResource(ID3D12Resource* pResource,
         mNumSubResource(subResourceCount),
         mResourceStates(new ResourceState[subResourceCount])
 {
-    memset(mResourceStates, static_cast<int>(initialState), subResourceCount * sizeof(ResourceState));
+    for (int i = 0; i < subResourceCount; ++i)
+    {
+        mResourceStates[i] = initialState;
+    }
 }
 
 #endif

@@ -1,4 +1,6 @@
 #pragma once
+#include "PC/Resource/DynamicBuffer.h"
+#include "PC/Resource/StaticBuffer.h"
 #ifdef WIN32
 #include "Engine/pch.h"
 #include "Engine/render/PC/Resource/D3dResource.h"
@@ -32,8 +34,8 @@ public:
     std::vector<float> tex(uint8_t semanticIdx, uint8_t* pNumComponent) const;
     const std::vector<uint32_t>& indices();
     const std::vector<SubMesh>& subMeshes();
-    uint32_t numVertex() const;
-    uint32_t numIndex() const;
+    uint64_t numVertex() const;
+    uint64_t numIndex() const;
     uint32_t calcVertexSize() const;
 	uint64_t vertexBufferSize() const;
 	void setVertex();
@@ -45,7 +47,7 @@ public:
 	void emplaceIndex(std::vector<uint32_t>&& index);
 	void emplaceTex(uint8_t semanticIdx, uint8_t numComponent, std::vector<float>&& tex);
 	void setSubMeshes(const std::vector<SubMesh>& subMeshes);
-	void updateModifications();
+    std::vector<float> getFilteredVertexBuffer() const;
 
     Mesh();
     Mesh(DirectX::XMFLOAT3* vertexData, uint32_t numVertices, uint32_t* indexData, uint64_t numIndices);
@@ -170,13 +172,58 @@ inline void Mesh::emplaceTex(uint8_t semanticIdx, uint8_t numComponent, std::vec
 #if defined(DEBUG) or defined(_DEBUG)
 	ASSERT(semanticIdx < 5, TEXT("semantic index out of bound(0~4)\n"));
 #endif
-	mTex[numComponent] = std::move(tex);
+	mTex[semanticIdx] = std::move(tex);
 	mTex->resize(mTex->size() / numComponent * numComponent);
 }
 
 inline void Mesh::setSubMeshes(const std::vector<SubMesh>& subMeshes)
 {
 	mSubMeshes = subMeshes;
+}
+
+// TODO: filter the vertex data according to shader 
+inline std::vector<float> Mesh::getFilteredVertexBuffer() const
+{
+	std::vector<float> vertexBuffer{};
+	// vertexBuffer.resize(mVertex.size() * calcVertexSize());
+	// we use fixed vertex data temporally, so the vertex size is fixed.
+	auto a = mVertexBuffer.size();
+	vertexBuffer.resize(mVertex.size() * sizeof(float[3 + 3 + 2]));
+	
+	// we should filter the vertex props by shader input.
+	// now we just let it be the combination of POSITION & NORMAL & TEXCOORD0
+	// ----------------------Temp Filter----------------------------
+	ASSERT(!mVertex.empty(), TEXT("vertex data missed"))
+	float* vertexPos = vertexBuffer.data();
+	float* zeroBuffer = new float[4]{0, 0, 0, 0};
+	for (size_t i = 0; i < mVertex.size(); ++i)
+	{
+		memcpy(vertexPos, mVertex.data() + i, sizeof(DirectX::XMFLOAT3));
+		vertexPos += 3;
+		if (i >= mNormal.size())
+		{
+			WARN("missing normal data");
+			memcpy(vertexPos, zeroBuffer, sizeof(DirectX::XMFLOAT3));
+		}
+		else
+		{
+			memcpy(vertexPos, mNormal.data() + i, sizeof(DirectX::XMFLOAT3));
+		}
+		vertexPos += 3;
+		if (i >= mTex->size())
+		{
+			WARN("missing tex0 data");
+			memcpy(vertexPos, zeroBuffer, sizeof(DirectX::XMFLOAT2));
+		}
+		else
+		{
+			memcpy(vertexPos, mTex->data() + i, sizeof(float[2]));
+		}
+		vertexPos += 2;
+	}
+
+	delete[] zeroBuffer;
+	return vertexBuffer;
 }
 
 inline const std::vector<uint32_t>& Mesh::indices()
@@ -189,14 +236,14 @@ inline const std::vector<SubMesh>& Mesh::subMeshes()
 	return mSubMeshes;
 }
 
-inline uint32_t Mesh::numVertex() const
+inline uint64_t Mesh::numVertex() const
 {
-	return static_cast<uint32_t>(mVertex.size());
+	return mVertex.size();
 }
 
-inline uint32_t Mesh::numIndex() const
+inline uint64_t Mesh::numIndex() const
 {
-	return static_cast<uint32_t>(mIndices.size());
+	return mIndices.size();
 }
 
 inline Mesh MeshPrototype::CreateCubeMesh()
@@ -356,40 +403,40 @@ inline Mesh MeshPrototype::CreateCubeMesh()
 	} ),
 	cubeMeshTemp.emplaceColor({
 		// -x
-		{0.7,  0.7,  0.7},
-		{0.7,  0.7,  0.7},
-		{0.7,  0.7,  0.7},
-		{0.7,  0.7,  0.7},
+		{0.7f,  0.7f,  0.7f},
+		{0.7f,  0.7f,  0.7f},
+		{0.7f,  0.7f,  0.7f},
+		{0.7f,  0.7f,  0.7f},
 
 		// +x
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
 
 		// -z
-		{ 0.7,  0.7, 0.7},
-		{ 0.7,  0.7, 0.7},
-		{ 0.7,  0.7, 0.7},
-		{ 0.7,  0.7, 0.7},
+		{ 0.7f,  0.7f, 0.7f},
+		{ 0.7f,  0.7f, 0.7f},
+		{ 0.7f,  0.7f, 0.7f},
+		{ 0.7f,  0.7f, 0.7f},
 
 		// +z
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
-		{ 0.7,  0.7,  0.7},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
+		{ 0.7f,  0.7f,  0.7f},
 
 		// -y
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
 
 		// +y
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
-		{ 0.7, 0.7,  0.7},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
+		{ 0.7f, 0.7f,  0.7f},
 	}),
 
 	cubeMeshTemp.emplaceTex(0, 2, {

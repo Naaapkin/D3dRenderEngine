@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Engine/render/PC/Resource/D3dAllocator.h"
 #ifdef WIN32
 #include "Engine/pch.h"
 #include "Engine/render/PC/Core/DescriptorHeap.h"
@@ -20,6 +21,7 @@ public:
     DescriptorHeap* createDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, uint16_t size) const;
     ID3D12PipelineState* createPipelineStateObject(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& psoDesc) const;
     ID3D12RootSignature* createRootSignature(ID3DBlob* binary) const;
+
     // D3dResource createD3dResource(D3D12_HEAP_FLAGS heapFlags,
     //                               const D3D12_HEAP_PROPERTIES& heapProp,
     //                               const D3D12_RESOURCE_DESC& desc,

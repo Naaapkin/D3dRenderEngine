@@ -1,12 +1,17 @@
-﻿#include "Engine/render/PC/D3dUtil.h"
-#include "Engine/render/PC/Resource/D3dAllocator.h"
-#include "Engine/render/PC/Resource/RenderItem.h"
+﻿
 #ifdef WIN32
 #include "D3dRenderer.h"
 #include "Engine/common/Exception.h"
+#include "Engine/render/PC/D3dUtil.h"
 #include "Engine/render/PC/Core/D3dContext.h"
-#include "Engine/render/PC/Resource/Shader.h"
+#include "Engine/render/PC/Resource/D3dAllocator.h"
+#include "Engine/render/PC/Resource/DynamicBuffer.h"
+#include "Engine/render/PC/Resource/RenderItem.h"
 #include "Engine/render/PC/Resource/RenderTexture.h"
+#include "Engine/render/PC/Resource/Shader.h"
+
+#undef max
+#undef min
 
 Renderer* Renderer::sRenderer()
 {
@@ -139,7 +144,7 @@ uint64_t D3dRenderer::sCalcPassCbvStartIdx(const GraphicSetting& graphicSettings
 
 uint64_t D3dRenderer::sCalcObjectCbvStartIdx(const GraphicSetting& graphicSettings, uint8_t cpuWorkingPageIdx)
 {
-    return cpuWorkingPageIdx * graphicSettings.mMaxRenderItemsPerFrame + graphicSettings.mNumPassConstants * graphicSettings.mNumBackBuffers;
+    return cpuWorkingPageIdx * graphicSettings.mMaxRenderItemsPerFrame * graphicSettings.mNumPerObjectConstants + graphicSettings.mNumPassConstants * graphicSettings.mNumBackBuffers;
 }
 
 void D3dRenderer::createRootSignature()
@@ -181,8 +186,6 @@ void D3dRenderer::createRootSignature()
     blob->Release();
 }
 
-D3dRenderer::~D3dRenderer() = default;
-
 void D3dRenderer::initializeImpl(HWND hWindow)
 {
     mRenderingThreadId = std::this_thread::get_id();
@@ -192,6 +195,8 @@ void D3dRenderer::initializeImpl(HWND hWindow)
     D3dAllocator allocator{mD3dContext.get()};
 
     mMainGraphicQueue = mD3dContext->createCommandQueue(D3D12_COMMAND_LIST_TYPE_DIRECT);
+    mMainComputeQueue = mD3dContext->createCommandQueue(D3D12_COMMAND_LIST_TYPE_COMPUTE);
+    mCopyQueue = mD3dContext->createCommandQueue(D3D12_COMMAND_LIST_TYPE_COPY);
 
     // create swapchain and backbuffers
     mSwapChain.Attach(
@@ -214,27 +219,40 @@ void D3dRenderer::initializeImpl(HWND hWindow)
         mGraphicSettings.mNumBackBuffers * (mGraphicSettings.mNumPassConstants + mGraphicSettings.mMaxRenderItemsPerFrame * mGraphicSettings.mNumPerObjectConstants)));
 
     // TODO: 
-    D3D12_CPU_DESCRIPTOR_HANDLE descHandle = mRtDescHeap->nativePtr()->GetCPUDescriptorHandleForHeapStart();
+    D3D12_CPU_DESCRIPTOR_HANDLE descHandle = mRtDescHeap->cpuHandle(0);
     mBackBuffers = new RenderTexture2D[mGraphicSettings.mNumBackBuffers];
     for (int i = 0; i < mGraphicSettings.mNumBackBuffers; ++i)
     {
-        ID3D12Resource* backBuffers;
+        ID3D12Resource* backBuffer;
         ThrowIfFailed(
-            mSwapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffers))
+            mSwapChain->GetBuffer(i, IID_PPV_ARGS(&backBuffer))
         );
-        mD3dContext->deviceHandle()->CreateRenderTargetView(backBuffers, nullptr, descHandle);
+        mD3dContext->deviceHandle()->CreateRenderTargetView(backBuffer, nullptr, descHandle);
         descHandle.ptr += mRtDescHeap->descriptorSize();
-        mBackBuffers[i] = std::move( RenderTexture2D{ D3dResource{ backBuffers, 1, static_cast<ResourceState>(D3D12_RESOURCE_STATE_COMMON) } });
+        mBackBuffers[i] = std::move( RenderTexture2D{ D3dResource{ backBuffer, 1, static_cast<ResourceState>(D3D12_RESOURCE_STATE_COMMON) } });
     }
     mCpuWorkingPageIdx = 0;
     // create depth stencil buffer
     mDepthStencilBuffer = std::move(
         *allocator.allocDepthStencilResource(desc.Width, desc.Height, mGraphicSettings.mDepthStencilFormat));
+    mD3dContext->deviceHandle()->CreateDepthStencilView(mDepthStencilBuffer.nativePtr(), nullptr, mDsDescHeap->cpuHandle(0));
 
-    mFrameFence = std::move(mD3dContext->createFence(0));
+    mGraphicContext = {};
+    mCopyContext = {};
+    mGraphicFence = std::move(mD3dContext->createFence(0));
+    mCopyFence = std::move(mD3dContext->createFence(0));
+    mGraphicContext.reset(mMainGraphicQueue.Get());
+    mCopyContext.reset(mCopyQueue.Get());
     mFrameFenceValue = 0;
+    mCopyFenceValue = 0;
 
-    D3dCommandListPool::initialize(*mD3dContext);
+
+    D3dCommandListPool::initialize(*mD3dContext, mGraphicSettings.mNumBackBuffers);
+    mAllocator = D3dAllocator{mD3dContext.get()};
+
+    mPassConstantsData.resize(mGraphicSettings.mNumPassConstants);
+    mReleasingResources = new std::vector<uint64_t>[mGraphicSettings.mNumBackBuffers];
+    mRenderData = new RenderData[mGraphicSettings.mNumBackBuffers];
 }
 
 void D3dRenderer::registerShaders(const std::vector<Shader*>& shaders)
@@ -252,15 +270,7 @@ void D3dRenderer::registerShaders(const std::vector<Shader*>& shaders)
         if (binary) psoDesc.GS = { binary->GetBufferPointer(), binary->GetBufferSize() };
         binary = const_cast<ID3DBlob*>(shader->psBinary());
         if (binary) psoDesc.PS = { binary->GetBufferPointer(), binary->GetBufferSize() };
-        
-        // D3D12_INPUT_ELEMENT_DESC inputDesc[] = {
-        //     {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0},
-        //     {"NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-        //     {"TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-        //     {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA},
-        //     {"TEXCOORD", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT, D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA}
-        // };
-        // D3D12_INPUT_LAYOUT_DESC layoutDesc = { inputDesc, 5 };
+
         D3D12_INPUT_LAYOUT_DESC inputLayoutDesc = shader->inputLayout();
         psoDesc.InputLayout = inputLayoutDesc;
         psoDesc.pRootSignature = mGlobalRootSignature;
@@ -278,43 +288,93 @@ void D3dRenderer::registerShaders(const std::vector<Shader*>& shaders)
 
         mPipelineStates[shader] = mD3dContext->createPipelineStateObject(psoDesc);
     }
+
+    uint64_t perObjectStart = mGraphicSettings.mNumBackBuffers * mGraphicSettings.mNumPassConstants;
+    for (uint32_t i = 0; i < mGraphicSettings.mNumBackBuffers; ++i)
+    {
+        std::vector<DynamicBuffer*>& constantBuffer = mRenderData[i].mConstantsBuffers;
+        constantBuffer.resize(mGraphicSettings.mNumPassConstants + mGraphicSettings.mMaxRenderItemsPerFrame * mGraphicSettings.mNumPerObjectConstants);
+        
+        // constants buffer footprint
+        uint8_t registerIndex = 0;
+        for (uint32_t j = 0; j < mGraphicSettings.mNumPassConstants; ++j)
+        {
+            uint64_t size = std::max<uint64_t>(Shader::mShaderPropSizes[registerIndex + j], 256);
+            auto& cb = constantBuffer[j];
+            cb = mAllocator.allocDynamicBuffer(size);
+            D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{ cb->gpuHandle(), static_cast<uint32_t>(size) };
+            mD3dContext->deviceHandle()->CreateConstantBufferView(
+                &cbvDesc, mCbSrUaDescHeap->cpuHandle(mGraphicSettings.mNumPassConstants * i + j));
+        }
+        registerIndex = mGraphicSettings.mNumPassConstants;
+        for (uint32_t j = 0; j < mGraphicSettings.mNumPerObjectConstants; ++j)
+        {
+            uint64_t size = std::max<uint64_t>(Shader::mShaderPropSizes[registerIndex + j], 256);
+            for (uint32_t k = 0; k < mGraphicSettings.mMaxRenderItemsPerFrame; ++k)
+            {
+                auto& cb = constantBuffer[mGraphicSettings.mNumPassConstants + mGraphicSettings.mNumPerObjectConstants * k + j]; 
+                cb = mAllocator.allocDynamicBuffer(size);
+                D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc{ cb->gpuHandle(), static_cast<uint32_t>(size) };
+                mD3dContext->deviceHandle()->CreateConstantBufferView(
+                    &cbvDesc, mCbSrUaDescHeap->cpuHandle(perObjectStart +
+                        (i * mGraphicSettings.mNumPerObjectConstants + k) * mGraphicSettings.mNumPerObjectConstants + j)
+                        );
+            }
+        }
+    }
 }
 
-ResourceHandle D3dRenderer::allocateDynamicBuffer(uint64_t size)
+void D3dRenderer::appendRenderLists(std::vector<RenderList>&& renderLists)
 {
-    return {};
+    mPendingRenderLists.reserve(mPendingRenderLists.size() + renderLists.size());
+    for (auto& renderList : renderLists)
+    {
+        mPendingRenderLists.push_back(renderList);
+    }
 }
 
-ResourceHandle D3dRenderer::allocateDefaultBuffer(uint64_t size)
-{
-    return {};
-}
+D3dRenderer::~D3dRenderer() = default;
 
-void D3dRenderer::updateDynamicBuffer(ResourceHandle buffer, const void* data, uint64_t size)
-{
-}
-
-void D3dRenderer::updateDefaultBuffer(ResourceHandle buffer, const void* data, uint64_t size)
+void D3dRenderer::onPreRender()
 {
 }
 
-void D3dRenderer::render()
+void D3dRenderer::onRender()
 {
-    mFrameFence.wait(mFrameFenceValue - mCpuWorkingPageIdx);
-    D3dCommandListPool::sGetCommandAllocator()->Reset();
+    // SYNC
+    mCopyQueue->Signal(mCopyFence.nativePtr(), ++mCopyFenceValue);
+    mMainGraphicQueue->Signal(mGraphicFence.nativePtr(), ++mFrameFenceValue);
+    mCopyFence.wait(mCopyFenceValue);
+    mGraphicFence.wait(mFrameFenceValue);
     
+    D3dCommandListPool::sGetCommandAllocator(D3dCommandListType::DIRECT)->Reset();
+
     // ------------------------------RenderPath Input---------------------------------
-    RenderContext renderContext{};
-    renderContext.setCommandQueue(mMainGraphicQueue.Get());
-    renderContext.setRenderTargets(mBackBuffers + mCpuWorkingPageIdx, 1);
-    renderContext.setDepthStencilBuffer(&mDepthStencilBuffer);
+    mGraphicContext.reset(mMainGraphicQueue.Get());
+    mGraphicContext.setRenderTargets(mBackBuffers + mCpuWorkingPageIdx, 1);
+    mGraphicContext.setDepthStencilBuffer(&mDepthStencilBuffer);
     D3D12_RESOURCE_DESC&& rtDesc = mBackBuffers->nativePtr()->GetDesc();    // TODO:
     Viewport viewport{static_cast<float>(rtDesc.Width), static_cast<float>(rtDesc.Height), 0.0f, 1.0f};
     Rect scissorRect{0, 0, static_cast<LONG>(rtDesc.Width), static_cast<LONG>(rtDesc.Height)};
-    D3dCommandList* commandList = D3dCommandListPool::getCommandList();
+    D3dCommandList* pCommandList = D3dCommandListPool::getCommandList(D3dCommandListType::DIRECT);
     
     // ------------------------------RenderPath Start---------------------------------
-    ID3D12GraphicsCommandList* nativeCmdList = commandList->nativePtr();
+    ID3D12GraphicsCommandList* nativeCmdList = pCommandList->nativePtr();
+    // fill the pass constants part of descriptors in descriptor heap.
+    // total pass constants descriptor = constant count per pass * back buffer count
+    // they stores in heap like below:
+    // | pass0 : constant0, constant1, ... | pass1 : constant0, constant1, ... | ...
+
+    if (mNumDirtyFrames)
+    {
+        for (int i = 0; i < mGraphicSettings.mNumPassConstants; ++i)
+        {
+            auto* passConstantsBuffer = mRenderData[mCpuWorkingPageIdx].mConstantsBuffers[i];
+            memcpy(passConstantsBuffer->mappedPointer(), mPassConstantsData[i], passConstantsBuffer->size());
+        }
+        mNumDirtyFrames--;
+    }
+    
     ID3D12DescriptorHeap* heaps[] = { mCbSrUaDescHeap->nativePtr() };
     nativeCmdList->SetDescriptorHeaps(1, heaps); // do in render
     nativeCmdList->SetGraphicsRootSignature(mGlobalRootSignature); // do in dc
@@ -322,12 +382,18 @@ void D3dRenderer::render()
     nativeCmdList->SetGraphicsRootDescriptorTable(1, mCbSrUaDescHeap->gpuHandle(sCalcObjectCbvStartIdx(mGraphicSettings, mCpuWorkingPageIdx)));
     
     // set render target
-    D3D12_CPU_DESCRIPTOR_HANDLE&& hRTV = mRtDescHeap->cpuHandle(mCpuWorkingPageIdx);
-    D3D12_CPU_DESCRIPTOR_HANDLE&& hDSV = mDsDescHeap->cpuHandle(0);
+    D3D12_CPU_DESCRIPTOR_HANDLE hRTV = mRtDescHeap->cpuHandle(mCpuWorkingPageIdx);
+    D3D12_CPU_DESCRIPTOR_HANDLE hDSV = mDsDescHeap->cpuHandle(0);
 
+    pCommandList->transition(mBackBuffers[mCpuWorkingPageIdx], ResourceState::RENDER_TARGET);
+    
     // ----------------------------------Pass Start-----------------------------------
     for (const auto& renderList : mPendingRenderLists)
     {
+        TransformConstants transform{};
+        transform.mView = renderList.mView;
+        transform.mProjection = renderList.mProj;
+        // update buffers
         nativeCmdList->OMSetRenderTargets(1, &hRTV, false, &hDSV);
         nativeCmdList->ClearRenderTargetView(hRTV, DirectX::Colors::LightSteelBlue, 0, nullptr);
     
@@ -336,12 +402,26 @@ void D3dRenderer::render()
         nativeCmdList->RSSetViewports(1, reinterpret_cast<const D3D12_VIEWPORT*>(&viewport));
         nativeCmdList->RSSetScissorRects(1, reinterpret_cast<const D3D12_RECT*>(&scissorRect));
         // ------------------------------Draw Call Begin----------------------------------
-        for (const auto& renderItem : renderList.mRenderItems)
+        for (uint64_t i = 0; i < renderList.mRenderItems.size(); ++i)
         {
+            uint64_t objectConstantsStart = mGraphicSettings.mNumPassConstants + mGraphicSettings.mNumPerObjectConstants * i;
+            const auto& renderItem = renderList.mRenderItems[i];
+            const auto& materialConstants = renderItem.mMaterial->mConstants;
+            // copy all constants data to dynamic buffers that bound to the registers through descriptors heap.
+            // register 1 is bound to per-object transform data
+            auto& transformBuffer = mRenderData[mCpuWorkingPageIdx].mConstantsBuffers[objectConstantsStart];
+            transform.mModel = renderItem.mModel;
+            memcpy(transformBuffer->mappedPointer(), &transform, sizeof(TransformConstants));
+            // copy material data
+            for (auto& constant : materialConstants)
+            {
+                auto& constantBuffer = mRenderData[mCpuWorkingPageIdx].mConstantsBuffers[objectConstantsStart + constant.first]; 
+                memcpy(constantBuffer->mappedPointer(), constant.second.data(), constant.second.size());    // TODO: grow dynamic buffer if needed
+            }
             const auto& meshData = renderItem.mMeshData;
-            uint32_t vertexSize = renderItem.mMaterial.shader->vertexSize();
-            D3dResource* vertexBuffer = mResources[meshData.mVertexBuffer.mIdx * mGraphicSettings.mNumBackBuffers + mCpuWorkingPageIdx];
-            D3dResource* indexBuffer = mResources[meshData.mIndexBuffer.mIdx * mGraphicSettings.mNumBackBuffers + mCpuWorkingPageIdx];
+            uint32_t vertexSize = renderItem.mMaterial->shader->vertexSize();
+            D3dResource* vertexBuffer = mResources[meshData.mVertexBuffer.mIndex];
+            D3dResource* indexBuffer = mResources[meshData.mIndexBuffer.mIndex];
             D3D12_VERTEX_BUFFER_VIEW vBufferDesc = {
                 vertexBuffer->nativePtr()->GetGPUVirtualAddress(),
                 (meshData.mVertexCount * vertexSize), vertexSize
@@ -350,11 +430,11 @@ void D3dRenderer::render()
                 indexBuffer->nativePtr()->GetGPUVirtualAddress(),
                 meshData.mIndexCount * static_cast<uint32_t>(sizeof(uint32_t)), DXGI_FORMAT_R32_UINT
             };
+            nativeCmdList->SetPipelineState(mPipelineStates[renderItem.mMaterial->shader]);
             // Input Assemble
             nativeCmdList->IASetVertexBuffers(0, 1, &vBufferDesc);
             nativeCmdList->IASetIndexBuffer(&iBufferDesc);
             nativeCmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            nativeCmdList->SetPipelineState(mPipelineStates[renderItem.mMaterial.shader]);
             // Draw Call
             for (const auto& subMesh : renderItem.mMeshData.mSubMeshes)
             {
@@ -363,13 +443,31 @@ void D3dRenderer::render()
         }
         // -------------------------------Draw Call End-----------------------------------
     }
+    pCommandList->transition(mBackBuffers[mCpuWorkingPageIdx], ResourceState::PRESENT);
+    pCommandList->close();
+    mGraphicContext.executeCommandList(pCommandList);
+    ThrowIfFailed(mSwapChain->Present(1, 0));
+
+    // -------------------------------Release Resources-------------------------------
+    mPendingRenderLists.clear();
+    auto& releasingResources = mReleasingResources[mCpuWorkingPageIdx]; 
+    releasingResources.clear();
+    releasingResources.swap(mReleasingResources[mGraphicSettings.mNumBackBuffers]);
+    for (auto index : releasingResources)
+    {
+        mResources[index]->release();
+        delete mResources[index];
+        mResources[index] = nullptr;
+        mAvailableResourceAddresses.push(index);
+    }
     
-    // for (auto pair : mRenderPasses)
-    // {
-    //     pair.first->render(renderContext, commandList);
-    // }
     mCpuWorkingPageIdx = (mCpuWorkingPageIdx + 1) % mGraphicSettings.mNumBackBuffers;
-    mMainGraphicQueue->Signal(mFrameFence.nativePtr(), (++mFrameFenceValue) - mCpuWorkingPageIdx);
+}
+
+void D3dRenderer::render()
+{
+    onPreRender();
+    onRender();
 }
 
 void D3dRenderer::release()
@@ -385,8 +483,9 @@ void D3dRenderer::release()
     //     delete pair.second;
     // }
     // mRenderPaths.clear();
-    mFrameFence.wait(mFrameFenceValue - mCpuWorkingPageIdx);
-    mFrameFence.release();
+    delete[] mReleasingResources;
+    mGraphicFence.wait(mFrameFenceValue - mGraphicSettings.mNumBackBuffers);
+    mGraphicFence.release();
     mSwapChain.Reset();
     for (int i = 0; i < mGraphicSettings.mNumBackBuffers; ++i)
     {

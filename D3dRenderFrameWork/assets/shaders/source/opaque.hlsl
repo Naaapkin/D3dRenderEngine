@@ -9,7 +9,7 @@ cbuffer PassConstants : register(b0)
 	float4 lightDirection;  
 }
 
-cbuffer ObjectConstants : register(b1)
+cbuffer ObjectConstants : register(b2)
 {
 	float4x4 m_model;
 	float4x4 m_view;
@@ -26,13 +26,20 @@ struct VertexInput
     float2 uv : TEXCOORD;
 };
 
+struct SimpleVertexInput
+{
+    float3 position : POSITION;
+    float3 normal : NORMAL;
+    float2 uv : TEXCOORD;
+};
+
 struct FragInput
 {
     float4 position : SV_POSITION;
     float4 color : COLOR;
 };
 
-FragInput VsMain(VertexInput input)
+FragInput VsMain(SimpleVertexInput input)
 {
     FragInput o;
     float4 worldPosition = mul(m_model, float4(input.position, 1));

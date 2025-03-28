@@ -7,11 +7,9 @@ class StaticBuffer : public D3dResource
 {
 	friend class D3dAllocator;
 public:
-	using D3dResource::release;
-
-	~StaticBuffer() override;
-    
+	uint64_t size() const override;
     StaticBuffer(StaticBuffer&& other) noexcept;
+	~StaticBuffer() override;
 	StaticBuffer& operator=(StaticBuffer&& other) noexcept;
     DELETE_COPY_CONSTRUCTOR(StaticBuffer)
     DELETE_COPY_OPERATOR(StaticBuffer)
@@ -23,6 +21,11 @@ private:
 inline StaticBuffer::StaticBuffer(D3dResource&& resource) : D3dResource(std::move(resource)) { }
 
 inline StaticBuffer::~StaticBuffer() = default;
+
+inline uint64_t StaticBuffer::size() const
+{
+	return nativePtr()->GetDesc().Width;
+}
 
 inline StaticBuffer::StaticBuffer(StaticBuffer&& other) noexcept : D3dResource(std::move(other))
 {

@@ -67,6 +67,9 @@ public:
     DELETE_COPY_CONSTRUCTOR(Shader)
     DELETE_COPY_OPERATOR(Shader)
 
+    // TODO: make private
+    static std::unordered_map<uint64_t, uint64_t> mShaderPropSizes;
+
 private:
     enum ShaderType : uint8_t
     {
@@ -80,7 +83,8 @@ private:
     static ID3DBlob* sNativeCompile(const std::string& name, const char* source, uint64_t size, const std::string& entry, ShaderType type);
 
     void buildInputLayoutFootprint();
-    
+
+    // TODO: when shader prop names repeated, we need to merge the properties, bind them to the same register.
     static std::unordered_map<String, uint8_t> mShaderPropBindings;
     static std::shared_mutex mPropBindingReadMutex;
 

@@ -20,7 +20,7 @@ RenderTexture2D* D3dAllocator::allocDepthStencilResource(uint64_t width, uint64_
         D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL
     };
     const D3D12_HEAP_PROPERTIES heapProp = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-    return new RenderTexture2D{ createD3dResource(D3D12_HEAP_FLAG_NONE, heapProp, dsDesc, D3D12_RESOURCE_STATE_COMMON, &clearValue) };
+    return new RenderTexture2D{ createD3dResource(D3D12_HEAP_FLAG_NONE, heapProp, dsDesc, D3D12_RESOURCE_STATE_DEPTH_WRITE, &clearValue) };
 }
 
 // render layer use only
@@ -54,7 +54,7 @@ D3dAllocator::~D3dAllocator() = default;
 D3dResource D3dAllocator::createD3dResource(D3D12_HEAP_FLAGS heapFlags, const D3D12_HEAP_PROPERTIES& heapProp,
                                                     const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE* pClearValue) const
 {
-    ID3D12Device* pDevice = mGraphicContext->deviceHandle();
+    ID3D12Device* pDevice = mD3dContext->deviceHandle();
     uint64_t subResourceCount = static_cast<uint64_t>(desc.MipLevels) * desc.DepthOrArraySize * D3D12GetFormatPlaneCount(pDevice, desc.Format);
     ID3D12Resource* pBuffer = nullptr;
     ThrowIfFailed(pDevice->CreateCommittedResource(
@@ -88,5 +88,5 @@ DynamicBuffer D3dAllocator::createDynamicBuffer(uint64_t size) const
 
 D3dAllocator::D3dAllocator() = default;
 
-D3dAllocator::D3dAllocator(D3dContext* pContext) : mGraphicContext(pContext) { } 
+D3dAllocator::D3dAllocator(D3dContext* pContext) : mD3dContext(pContext) { } 
 #endif

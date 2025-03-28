@@ -4,8 +4,8 @@
 #include "Engine/render/PC/Resource/D3dResource.h"
 #include "Engine/render/PC/Core/D3dCommandList.h"
 
-struct RenderData;
-struct FrameResource;
+class D3dContext;
+struct ResourceManager;
 class StaticBuffer;
 class DynamicBuffer;
 enum class TextureType : uint8_t;
@@ -34,6 +34,6 @@ private:
     StaticBuffer createStaticBuffer(uint64_t size) const;
     DynamicBuffer createDynamicBuffer(uint64_t size) const;
     
-    D3dContext* mGraphicContext;
+    D3dContext* mD3dContext;
 };
 #endif
