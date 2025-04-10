@@ -3,35 +3,38 @@
 #include "Engine/pch.h"
 #include "Engine/render/PC/Resource/D3dResource.h"
 
-class StaticBuffer : public D3dResource
+class StaticHeap final : public D3dResource
 {
-	friend class D3dAllocator;
+	friend class D3D12RHIFactory;
 public:
 	uint64_t size() const override;
-    StaticBuffer(StaticBuffer&& other) noexcept;
-	~StaticBuffer() override;
-	StaticBuffer& operator=(StaticBuffer&& other) noexcept;
-    DELETE_COPY_CONSTRUCTOR(StaticBuffer)
-    DELETE_COPY_OPERATOR(StaticBuffer)
+	StaticHeap();
+    StaticHeap(StaticHeap&& other) noexcept;
+	~StaticHeap() override;
+	StaticHeap& operator=(StaticHeap&& other) noexcept;
+    DELETE_COPY_CONSTRUCTOR(StaticHeap)
+    DELETE_COPY_OPERATOR(StaticHeap)
 
 private:
-	StaticBuffer(D3dResource&& resource);
+	StaticHeap(D3dResource&& resource);
 };
 
-inline StaticBuffer::StaticBuffer(D3dResource&& resource) : D3dResource(std::move(resource)) { }
+inline StaticHeap::StaticHeap(D3dResource&& resource) : D3dResource(std::move(resource)) { }
 
-inline StaticBuffer::~StaticBuffer() = default;
+inline StaticHeap::~StaticHeap() = default;
 
-inline uint64_t StaticBuffer::size() const
+inline uint64_t StaticHeap::size() const
 {
 	return nativePtr()->GetDesc().Width;
 }
 
-inline StaticBuffer::StaticBuffer(StaticBuffer&& other) noexcept : D3dResource(std::move(other))
+inline StaticHeap::StaticHeap() = default;
+
+inline StaticHeap::StaticHeap(StaticHeap&& other) noexcept : D3dResource(std::move(other))
 {
 }
 
-inline StaticBuffer& StaticBuffer::operator=(StaticBuffer&& other) noexcept
+inline StaticHeap& StaticHeap::operator=(StaticHeap&& other) noexcept
 {
 	D3dResource::operator=(std::move(other));
 	return *this;

@@ -3,7 +3,7 @@
 #include "Engine/pch.h"
 #include "Engine/render/PC/Core/D3dObject.h"
 
-class DescriptorHeap : public D3dObject
+class DescriptorHeap : public D3D12DeviceChild
 {
 public:
     D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle(uint32_t index) const;
@@ -45,11 +45,11 @@ inline uint32_t DescriptorHeap::descriptorSize() const
 
 inline ID3D12DescriptorHeap* DescriptorHeap::nativePtr() const
 {
-    return static_cast<ID3D12DescriptorHeap*>(D3dObject::nativePtr());
+    return static_cast<ID3D12DescriptorHeap*>(D3D12DeviceChild::nativePtr());
 }
 
 inline DescriptorHeap::DescriptorHeap(ID3D12DescriptorHeap* pDescHeap, uint32_t descriptorSize, uint32_t numDescriptors) :
-    D3dObject(pDescHeap),
+    D3D12DeviceChild(pDescHeap),
     mNumDescriptors(numDescriptors),
     mDescriptorSize(descriptorSize)
 {

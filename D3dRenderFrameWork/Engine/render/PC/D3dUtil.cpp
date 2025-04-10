@@ -1,4 +1,5 @@
-﻿#ifdef WIN32
+﻿#include "Engine/common/helper.h"
+#ifdef WIN32
 #include "Engine/common/Exception.h"
 #include "Engine/common/PC/WFunc.h"
 #include "Engine/render/PC/D3dUtil.h"
@@ -41,24 +42,6 @@ DXGI_FORMAT GetParaInfoFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& param
     return DXGI_FORMAT_UNKNOWN;
 }
 
-ID3DBlob* LoadCompiledShaderObject(const String& path)
-{
-    std::ifstream fIn{ path, std::ios::binary };
-    if (!fIn.is_open()){
-        //char buffer[256];
-        //_getcwd(buffer, 256);
-        return nullptr;
-    }
-    fIn.seekg(0, std::ios_base::end);
-    std::ifstream::pos_type size = fIn.tellg();
-    fIn.seekg(0, std::ios_base::beg);
-    ID3DBlob* binaryBlob;
-    ThrowIfFailed(D3DCreateBlob(size, &binaryBlob));
-    fIn.read(static_cast<char*>(binaryBlob->GetBufferPointer()), size);
-    fIn.close();
-    return binaryBlob;
-}
-
 D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
@@ -74,6 +57,19 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc()
     psoDesc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
     psoDesc.SampleDesc = DXGI_SAMPLE_DESC{ 1, 0 };
     return psoDesc;
+}
+
+uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::string& name)
+{
+    D3D12_SHADER_BUFFER_DESC bufferDesc{};
+    auto* pBuffer = pReflector->GetConstantBufferByName(name.c_str());
+    pBuffer->GetDesc(&bufferDesc);
+    return bufferDesc.Size;
+}
+
+uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::wstring& name)
+{
+    return gGetConstantsBufferSize(pReflector, ::Utf8ToAscii(name));
 }
 
 bool gImplicitTransit(const uint32_t stateBefore, uint32_t& stateAfter,

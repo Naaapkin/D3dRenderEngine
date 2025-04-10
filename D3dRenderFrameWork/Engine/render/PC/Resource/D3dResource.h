@@ -3,12 +3,6 @@
 #include "Engine/pch.h"
 #include "Engine/render/PC/Core/D3dObject.h"
 
-enum class ResourceLife : uint8_t
-{
-    TEMP,
-    PERSISTENT
-};
-
 enum class ResourceState : uint32_t
 {
     COMMON = D3D12_RESOURCE_STATE_COMMON,
@@ -38,16 +32,18 @@ enum class ResourceState : uint32_t
     UNKNOWN = 0xffffffff,
 };
 
-class D3dResource : public D3dObject
+class D3dResource : public D3D12DeviceChild
 {
-    friend class D3dAllocator;
+    friend class D3D12RHIFactory;
     
 public:
     uint64_t subResourceCount() const;
     ResourceState* resourceStates() const;
 
     ID3D12Resource* nativePtr() const override;
-    D3D12_GPU_VIRTUAL_ADDRESS gpuHandle() const;
+    D3D12_GPU_VIRTUAL_ADDRESS gpuAddress() const;
+    void setCpuHandle(uint64_t handle);
+    D3D12_CPU_DESCRIPTOR_HANDLE cpuHandle() const;
     virtual uint64_t size() const;
     void release() override;
     ~D3dResource() override;
@@ -66,37 +62,34 @@ public:
 private:
     uint64_t mNumSubResource;
     ResourceState* mResourceStates;
-};
-
-struct ResourceHandle
-{
-    uint64_t mIndex;
-
-    ResourceHandle() = default;
-    ResourceHandle(uint64_t index) : mIndex(index) { }
-
-    ~ResourceHandle() = default;
-    DEFAULT_COPY_CONSTRUCTOR(ResourceHandle)
-    DEFAULT_COPY_OPERATOR(ResourceHandle)
-    DEFAULT_MOVE_CONSTRUCTOR(ResourceHandle)
-    DEFAULT_MOVE_OPERATOR(ResourceHandle)
+    uint64_t mHandle;
 };
 
 inline ID3D12Resource* D3dResource::nativePtr() const
 {
-    return reinterpret_cast<ID3D12Resource*>(D3dObject::nativePtr());
+    return reinterpret_cast<ID3D12Resource*>(D3D12DeviceChild::nativePtr());
 }
 
-inline D3D12_GPU_VIRTUAL_ADDRESS D3dResource::gpuHandle() const
+inline D3D12_GPU_VIRTUAL_ADDRESS D3dResource::gpuAddress() const
 {
     return nativePtr()->GetGPUVirtualAddress();
+}
+
+inline void D3dResource::setCpuHandle(uint64_t handle)
+{
+    mHandle = handle;
+}
+
+inline D3D12_CPU_DESCRIPTOR_HANDLE D3dResource::cpuHandle() const
+{
+    return {mHandle};
 }
 
 inline uint64_t D3dResource::size() const
 {
     uint64_t size;
     auto desc = nativePtr()->GetDesc();
-    device()->GetCopyableFootprints(
+    Device()->GetCopyableFootprints(
         &desc, // D3D12_RESOURCE_DESC
         0,            // FirstMip
         1,            // NumMips
@@ -130,9 +123,9 @@ inline D3dResource::~D3dResource()
     D3dResource::release();
 }
 
-inline D3dResource::D3dResource() : D3dObject(nullptr), mNumSubResource(0), mResourceStates(nullptr) { }
+inline D3dResource::D3dResource() : D3D12DeviceChild(nullptr), mNumSubResource(0), mResourceStates(nullptr) { }
 
-inline D3dResource::D3dResource(D3dResource&& other) noexcept : D3dObject(std::move(other)), mNumSubResource(other.mNumSubResource), mResourceStates(other.mResourceStates)
+inline D3dResource::D3dResource(D3dResource&& other) noexcept : D3D12DeviceChild(std::move(other)), mNumSubResource(other.mNumSubResource), mResourceStates(other.mResourceStates)
 {
     other.mResourceStates = nullptr;
     other.mNumSubResource = 0;
@@ -140,19 +133,19 @@ inline D3dResource::D3dResource(D3dResource&& other) noexcept : D3dObject(std::m
 
 inline bool D3dResource::operator==(const D3dResource& other) const noexcept
 {
-    return D3dObject::operator==(other);
+    return D3D12DeviceChild::operator==(other);
 }
 
 inline bool D3dResource::operator!=(const D3dResource& other) const noexcept
 {
-    return D3dObject::operator!=(other);
+    return D3D12DeviceChild::operator!=(other);
 }
 
 inline D3dResource& D3dResource::operator=(D3dResource&& other) noexcept
 {
     if (&other != this)
     {
-        D3dObject::operator=(std::move(other));
+        D3D12DeviceChild::operator=(std::move(other));
         mResourceStates = other.mResourceStates;
         mNumSubResource = other.mNumSubResource;
         other.mResourceStates = nullptr;
@@ -164,7 +157,7 @@ inline D3dResource& D3dResource::operator=(D3dResource&& other) noexcept
 inline D3dResource::D3dResource(ID3D12Resource* pResource, 
                                 uint64_t subResourceCount,
                                 ResourceState initialState) :
-        D3dObject(pResource),
+        D3D12DeviceChild(pResource),
         mNumSubResource(subResourceCount),
         mResourceStates(new ResourceState[subResourceCount])
 {

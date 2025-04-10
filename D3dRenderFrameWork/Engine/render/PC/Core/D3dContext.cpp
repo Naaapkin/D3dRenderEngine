@@ -14,11 +14,6 @@ IDXGIFactory4* D3dContext::factoryHandle() const
     return mFactoryHandle.Get();
 }
 
-HWND D3dContext::windowHandle() const
-{
-    return mWindowHandle;
-}
-
 Fence D3dContext::createFence(uint64_t initValue) const
 {
     ID3D12Fence* pFence;
@@ -79,7 +74,7 @@ ID3D12PipelineState* D3dContext::createPipelineStateObject(const D3D12_GRAPHICS_
     return pso;
 }
 
-IDXGISwapChain1* D3dContext::createSwapChainForHwnd(ID3D12CommandQueue* pCommandQueue, TextureFormat backBufferFormat, uint8_t numBackBuffer) const
+IDXGISwapChain1* D3dContext::createSwapChainForHwnd(ID3D12CommandQueue* pCommandQueue, Format backBufferFormat, uint8_t numBackBuffer) const
 {
     IDXGISwapChain1* pSwapChain;
     DXGI_SWAP_CHAIN_DESC1 swapChainDesc;
@@ -96,7 +91,7 @@ IDXGISwapChain1* D3dContext::createSwapChainForHwnd(ID3D12CommandQueue* pCommand
     ThrowIfFailed(
         mFactoryHandle->CreateSwapChainForHwnd(
             pCommandQueue,
-            mWindowHandle,
+            GetActiveWindow(),
             &swapChainDesc,
             nullptr,
             nullptr,
@@ -107,6 +102,7 @@ IDXGISwapChain1* D3dContext::createSwapChainForHwnd(ID3D12CommandQueue* pCommand
 
 void D3dContext::initialize()
 {
+
 #if defined(DEBUG) or defined(_DEBUG)
     ComPtr<ID3D12Debug> debugController;
     if (SUCCEEDED(D3D12GetDebugInterface(IID_PPV_ARGS(&debugController))))
@@ -154,6 +150,8 @@ void D3dContext::initialize()
 #endif
 }
 
+D3dContext::D3dContext() = default;
+
 ID3D12RootSignature* D3dContext::createRootSignature(ID3DBlob* binary) const
 {
     ID3D12RootSignature* pRootSig;
@@ -165,7 +163,11 @@ ID3D12RootSignature* D3dContext::createRootSignature(ID3DBlob* binary) const
     return pRootSig;
 }
 
-D3dContext::D3dContext(HWND hWindow) : mWindowHandle(hWindow) { }
+D3dContext& D3dContext::instance()
+{
+    static D3dContext context{};
+    return context;
+}
 
 #if defined(DEBUG) or defined(_DEBUG)
 D3dContext::~D3dContext()

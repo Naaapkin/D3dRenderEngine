@@ -67,6 +67,14 @@ RenderTexture2D::RenderTexture2D(D3dResource&& resource) : Texture(TextureType::
     mMappedPointer = static_cast<const byte*>(mappedPointer);
 }
 
+RenderTexture2D::RenderTexture2D(RenderTexture2D&& other) noexcept
+{
+}
+
+RenderTexture2D& RenderTexture2D::operator=(RenderTexture2D&& other) noexcept
+{
+}
+
 RenderTexture2D::~RenderTexture2D() = default;
 #endif
 

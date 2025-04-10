@@ -13,7 +13,7 @@ public:
     const byte* subDatePtr(uint8_t mip) const override;
     
     RawTexture(TextureType type, uint64_t width, uint64_t height, uint32_t depth,
-            TextureFormat format, const byte* data = nullptr,
+            format format, const byte* data = nullptr,
             uint8_t numMips = 1, uint8_t sampleCount = 1, uint8_t sampleQuality = 0);
     RawTexture(const RawTexture& o) noexcept;
     ~RawTexture() override;

@@ -1,4 +1,4 @@
-#include "assets/shaders/source/common/Samplers.hlsl"
+#include "common/Samplers.hlsl"
 
 cbuffer PassConstants : register(b0)
 {
@@ -6,7 +6,7 @@ cbuffer PassConstants : register(b0)
   
     float3 lightColor;
     float intensity;
-	float4 lightDirection;  
+	float4 lightDirection;
 }
 
 cbuffer ObjectConstants : register(b2)

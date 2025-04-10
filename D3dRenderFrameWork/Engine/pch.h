@@ -82,6 +82,25 @@ concept Numeric = std::is_arithmetic_v<T>;
 #define DEFAULT_COPY_CONSTRUCTOR(name) name(const name& other) = default;
 #define DEFAULT_MOVE_OPERATOR(name) name& operator=(name&& other) noexcept = default;
 #define DEFAULT_COPY_OPERATOR(name) name& operator=(const name& other) = default;
+#define DEFAULT_COPY_MOVE(name) DEFAULT_COPY_CONSTRUCTOR(name) name(name&& other);\
+    DEFAULT_MOVE_CONSTRUCTOR(name);\
+    DEFAULT_COPY_OPERATOR(name);\
+    DEFAULT_MOVE_OPERATOR(name);
+#define NON_COPYABLE(name) DELETE_COPY_CONSTRUCTOR(name);\
+    DELETE_COPY_OPERATOR(name);
+
+struct NonCopyable
+{
+public:
+    NonCopyable() = default;
+    ~NonCopyable() = default;
+    
+protected:
+    DELETE_COPY_OPERATOR(NonCopyable);
+    DELETE_COPY_CONSTRUCTOR(NonCopyable);
+    DEFAULT_MOVE_OPERATOR(NonCopyable);
+    DEFAULT_MOVE_CONSTRUCTOR(NonCopyable);
+};
 
 #ifdef UNICODE
 #define TO_STRING(str) std::to_wstring(str)

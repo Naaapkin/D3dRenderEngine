@@ -1,8 +1,9 @@
 #pragma once
 #include "Engine/pch.h"
+#include "Engine/render/PC/D3dUtil.h"
 
 class D3dRenderer;
-class D3dCommandList;
+class D3D12CommandList;
 class D3dContext;
 
 enum class D3dCommandListType : uint8_t
@@ -17,28 +18,27 @@ struct TypedCommandListPool
     static constexpr float EXPAND_RATIO = 0.2f;
     
     D3dCommandListType mType;
-    
-    D3dCommandList** mCommandLists;
+
+    std::vector<UComPtr<ID3D12CommandAllocator>> mAllocators;
     uint64_t mNumAllocators;
     uint64_t mNumAvailableAllocators;
+    std::vector<std::unique_ptr<D3D12CommandList>> mCommandLists;
     uint64_t mNumCommandLists;
     uint64_t mNumAvailableCmdLists;
-    std::unordered_map<std::thread::id, ID3D12CommandAllocator**> mAllocators;
+    std::unordered_map<std::thread::id, ID3D12CommandAllocator*> mAllocatorCache;
 
-    void initialize(const D3dContext& d3dContext, D3dCommandListType type, uint64_t numCommandList, uint8_t numCpuWorkPages);
-    void appendCommandList(const D3dContext& d3dContext, uint64_t num);
-    D3dCommandList* getCommandList(const D3dContext& d3dContext);
-    void recycleCommandList(D3dCommandList* pCommandList);
-    ID3D12CommandAllocator* getCommandAllocator();
-    TypedCommandListPool(D3dCommandListType type = D3dCommandListType::DIRECT);
+    void Initialize(D3dCommandListType type, uint64_t numCommandList, uint8_t numCpuWorkPages);
+    void AppendCommandList(uint64_t num);
+    D3D12CommandList* ObtainCommandList();
+    void ReleaseCommandList(D3D12CommandList* pCommandList);
 };
 
 class D3dCommandListPool
 {
 public:
-    static void initialize(D3dContext& gc, uint8_t numCpuWorkPages);
-    static void recycle(D3dCommandList* pCommandList);
-    static D3dCommandList* getCommandList(D3dCommandListType type);
+    static void initialize(uint8_t numCpuWorkPages);
+    static void recycle(D3D12CommandList* pCommandList);
+    static D3D12CommandList* getCommandList(D3dCommandListType type);
     static ID3D12CommandAllocator* sGetCommandAllocator(D3dCommandListType type);
 
 private:
@@ -55,6 +55,6 @@ private:
     static constexpr uint16_t COPY_ALLOCATOR_CAPACITY = 8;
     static constexpr uint16_t COPY_COMMAND_LIST_CAPACITY = 16;
     
-    D3dContext* mGraphicContext;
     TypedCommandListPool* mCommandListPools;
+    std::unique_ptr<RHIgRA[]> mAllocators;
 };

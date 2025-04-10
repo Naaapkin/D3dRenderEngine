@@ -14,21 +14,21 @@ const byte* RawTexture::subDatePtr(uint8_t mip) const
 
 void RawTexture::SetData(const byte* data) const
 {
-    uint64_t size = GetMip(MipLevels());
+    uint64_t size = GetMip(mipLevels());
     memcpy(mData, data, size);
 }
 
 void RawTexture::SetSubData(uint8_t mip, const byte* subData) const
 {
 #if defined(DEBUG) or defined(_DEBUG)
-    ASSERT(mip < MipLevels(), TEXT("index out of bound"));
+    ASSERT(mip < mipLevels(), TEXT("index out of bound"));
 #endif
-    uint64_t index = GetMip(MipLevels());
+    uint64_t index = GetMip(mipLevels());
     memcpy(mData + index, subData, GetMipSize(mip));
 }
 
 RawTexture::RawTexture(TextureType type,
-    uint64_t width, uint64_t height, uint32_t depth, TextureFormat format,
+    uint64_t width, uint64_t height, uint32_t depth, format format,
     const byte* data, uint8_t numMips, uint8_t sampleCount, uint8_t sampleQuality) :
     Texture(type, width, height, depth, format, numMips, sampleCount, sampleQuality) 
 {
@@ -39,7 +39,7 @@ RawTexture::RawTexture(TextureType type,
 
 RawTexture::RawTexture(const RawTexture& o) noexcept: Texture(o)
 {
-    uint64_t size = GetMip(MipLevels());
+    uint64_t size = GetMip(mipLevels());
     mData = new uint8_t[size];
     memcpy(mData, o.mData, size);
 }
@@ -54,7 +54,7 @@ RawTexture& RawTexture::operator=(const RawTexture& o) noexcept
     if (this != &o)
     {
         Texture::operator=(o);
-        uint64_t size = GetMip(MipLevels());
+        uint64_t size = GetMip(mipLevels());
         mData = new uint8_t[size];
         memcpy(mData, o.mData, size);
     }
@@ -65,9 +65,9 @@ RawTexture& RawTexture::operator=(const RawTexture& o) noexcept
 uint64_t RawTexture::GetMip(uint8_t mip) const
 {
     uint64_t index = 0;
-    uint64_t width = Width();
-    uint64_t height = Height();
-    uint64_t depth = Depth();
+    uint64_t width = width();
+    uint64_t height = height();
+    uint64_t depth = depth();
     while (mip)
     {
         index += width * height * depth;
@@ -81,9 +81,9 @@ uint64_t RawTexture::GetMip(uint8_t mip) const
 
 uint64_t RawTexture::GetMipSize(uint8_t mip) const
 {
-    uint64_t width = Width() << mip;
-    uint64_t height = Height() << mip;
-    uint64_t depth = Depth() << mip;
+    uint64_t width = width() << mip;
+    uint64_t height = height() << mip;
+    uint64_t depth = depth() << mip;
     width = width > 0 ? width : 1;
     height = height > 0 ? height : 1;
     depth = depth > 0 ? depth : 1;

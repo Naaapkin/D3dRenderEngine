@@ -1,9 +1,7 @@
 #pragma once
-#include "PC/Resource/DynamicBuffer.h"
-#include "PC/Resource/StaticBuffer.h"
+#include "RenderResource.h"
 #ifdef WIN32
 #include "Engine/pch.h"
-#include "Engine/render/PC/Resource/D3dResource.h"
 #include "Engine/common/Exception.h"
 
 struct SubMesh

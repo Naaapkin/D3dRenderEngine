@@ -2,28 +2,32 @@
 #ifdef WIN32
 #include "Engine/pch.h"
 
-struct Viewport
+template<typename T, typename = std::enable_if_t<std::is_base_of_v<IUnknown, T>>>
+class UComPtr : NonCopyable
 {
-    Viewport(float width, float height, float minDepth, float maxDepth)
-        : mTopX(0.0f), mLeftY(0.0f), mWidth(width), mHeight(height),
-          mMinDepth(minDepth), mMaxDepth(maxDepth) {}
-    float mTopX;
-    float mLeftY;
-    float mWidth;
-    float mHeight;
-    float mMinDepth;
-    float mMaxDepth;
+public:
+    T* Get() const { return mPtr; }
+    T* Reset(T* ptr) { std::swap(mPtr, ptr); return ptr; }
+    T** GetAddressOf() { return &mPtr; }
+    T* const* GetAddressOf() const { return &mPtr; }
+    void Release() { if (mPtr) {mPtr->Release(); mPtr = nullptr; } }
+    T* operator->() const { return mPtr; }
+    UComPtr() : mPtr(nullptr) {}
+    UComPtr(T* ptr) : mPtr(ptr) {}
+    UComPtr(UComPtr&& other) noexcept : mPtr(other.mPtr) { other.mPtr = nullptr; }
+    ~UComPtr() { Release(); }
+
+    UComPtr& operator=(UComPtr&& other) noexcept { Release(); other.mPtr = nullptr; return *this; }
+    
+private:
+    T* mPtr;
 };
 
-struct Rect
-{
-    Rect(LONG left, LONG top, LONG right, LONG bottom)
-        : mLeft(left), mTop(top), mRight(right), mBottom(bottom) {}
-    LONG mLeft;
-    LONG mTop;
-    LONG mRight;
-    LONG mBottom;
-};
+template<typename T>
+class UComPtr<T[]>;
+
+template<typename T, std::size_t N>
+class UComPtr<T[N]>;
 
 template<typename T>
 struct alignas(256) Constant
@@ -45,7 +49,8 @@ struct PassData
 };
 
 DXGI_FORMAT GetParaInfoFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& paramDesc);
-ID3DBlob* LoadCompiledShaderObject(const String& path);
 D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc();
+uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::string& name);
+uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::wstring& name);
 bool gImplicitTransit(uint32_t stateBefore, uint32_t& stateAfter, bool isBufferOrSimultaneous);
 #endif

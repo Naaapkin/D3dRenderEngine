@@ -101,6 +101,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Engine\common\Format.h" />
     <ClInclude Include="Engine\common\helper.h" />
     <ClInclude Include="Engine\common\PC\WFunc.h" />
     <ClInclude Include="Engine\common\Exception.h" />
@@ -110,112 +111,54 @@
     <ClInclude Include="Engine\math\PC\Vector2.h" />
     <ClInclude Include="Engine\math\PC\Vector3.h" />
     <ClInclude Include="Engine\pch.h" />
+    <ClInclude Include="Engine\render\Blob.h" />
     <ClInclude Include="Engine\render\d3dx12.h" />
+    <ClInclude Include="Engine\render\Material.h" />
     <ClInclude Include="Engine\render\MeshData.h" />
-    <ClInclude Include="Engine\render\PC\Core\D3dCommandList.h" />
+    <ClInclude Include="Engine\render\PC\Core\D3D12Device.h" />
     <ClInclude Include="Engine\render\PC\Core\D3dCommandListPool.h" />
     <ClInclude Include="Engine\render\PC\Core\D3dContext.h" />
     <ClInclude Include="Engine\render\PC\Core\D3dObject.h" />
     <ClInclude Include="Engine\render\PC\Core\D3dRenderer.h" />
     <ClInclude Include="Engine\render\PC\Core\DescriptorHeap.h" />
     <ClInclude Include="Engine\render\PC\Core\RenderContext.h" />
+    <ClInclude Include="Engine\render\PC\Core\RenderPass.h" />
     <ClInclude Include="Engine\render\PC\Core\ResourceStateTracker.h" />
+    <ClInclude Include="Engine\render\PC\D3D12RHI.h" />
     <ClInclude Include="Engine\render\PC\D3dUtil.h" />
     <ClInclude Include="Engine\render\PC\dxgi.h" />
+    <ClInclude Include="Engine\render\PC\Graphic.h" />
+    <ClInclude Include="Engine\render\PC\Resource\D3D12Resources.h" />
     <ClInclude Include="Engine\render\PC\Resource\D3dAllocator.h" />
     <ClInclude Include="Engine\render\PC\Resource\DynamicBuffer.h" />
-    <ClInclude Include="Engine\render\PC\Resource\RenderItem.h" />
     <ClInclude Include="Engine\render\PC\Resource\RenderTexture.h" />
-    <ClInclude Include="Engine\render\PC\Resource\Shader.h" />
+    <ClInclude Include="Engine\render\PC\Resource\HlslShader.h" />
+    <ClInclude Include="Engine\render\PC\Resource\RHIDescriptors.h" />
     <ClInclude Include="Engine\render\PC\Resource\StaticBuffer.h" />
     <ClInclude Include="Engine\render\PC\Resource\D3dResource.h" />
     <ClInclude Include="Engine\render\RawTexture.h" />
     <ClInclude Include="Engine\render\Renderer.h" />
+    <ClInclude Include="Engine\render\RenderItem.h" />
+    <ClInclude Include="Engine\render\RenderResource.h" />
+    <ClInclude Include="Engine\render\RHIDefination.h" />
+    <ClInclude Include="Engine\render\Shader.h" />
+    <ClInclude Include="Engine\render\ShaderCompiler.h" />
     <ClInclude Include="Engine\render\Texture.h" />
     <ClInclude Include="Engine\Window\Frame.h" />
     <ClInclude Include="Engine\Window\WFrame.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Assets\Shaders\source\opaque.hlsl">
+      <FileType>Document</FileType>
+      <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VsMain</EntryPointName>
+    </FxCompile>
     <ClCompile Include="Engine\common\PC\WFunc.cpp" />
     <ClCompile Include="Engine\game\EventDispatcher.cpp" />
     <ClCompile Include="Engine\game\PC\EventDispatcherWin.cpp" />
     <ClCompile Include="Engine\math\PC\Vector2.cpp" />
     <ClCompile Include="Engine\math\PC\Vector3.cpp" />
-    <ClCompile Include="Engine\render\PC\Core\D3dCommandList.cpp">
-      <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
-      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
-      <Optimization>Disabled</Optimization>
-      <SupportJustMyCode>true</SupportJustMyCode>
-      <AssemblerOutput>NoListing</AssemblerOutput>
-      <AssemblerListingLocation>x64\Debug\</AssemblerListingLocation>
-      <UndefineAllPreprocessorDefinitions>false</UndefineAllPreprocessorDefinitions>
-      <BrowseInformation>false</BrowseInformation>
-      <BrowseInformationFile>x64\Debug\</BrowseInformationFile>
-      <CompileAs>Default</CompileAs>
-      <ConformanceMode>true</ConformanceMode>
-      <DiagnosticsFormat>Column</DiagnosticsFormat>
-      <DisableLanguageExtensions>false</DisableLanguageExtensions>
-      <ErrorReporting>Prompt</ErrorReporting>
-      <ExpandAttributedSource>false</ExpandAttributedSource>
-      <ExceptionHandling>Sync</ExceptionHandling>
-      <EnableASAN>false</EnableASAN>
-      <EnableFuzzer>false</EnableFuzzer>
-      <EnableFiberSafeOptimizations>false</EnableFiberSafeOptimizations>
-      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
-      <FloatingPointModel>Precise</FloatingPointModel>
-      <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
-      <GenerateModuleDependencies>false</GenerateModuleDependencies>
-      <GenerateSourceDependencies>false</GenerateSourceDependencies>
-      <GenerateXMLDocumentationFiles>false</GenerateXMLDocumentationFiles>
-      <InlineFunctionExpansion>Default</InlineFunctionExpansion>
-      <IntrinsicFunctions>false</IntrinsicFunctions>
-      <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
-      <LanguageStandard>Default</LanguageStandard>
-      <LanguageStandard_C>Default</LanguageStandard_C>
-      <MinimalRebuild>false</MinimalRebuild>
-      <ModuleDependenciesFile>x64\Debug\</ModuleDependenciesFile>
-      <ModuleOutputFile>x64\Debug\</ModuleOutputFile>
-      <OmitDefaultLibName>false</OmitDefaultLibName>
-      <FavorSizeOrSpeed>Neither</FavorSizeOrSpeed>
-      <WholeProgramOptimization>false</WholeProgramOptimization>
-      <ObjectFileName>x64\Debug\</ObjectFileName>
-      <CallingConvention>Cdecl</CallingConvention>
-      <ProgramDataBaseFileName>x64\Debug\vc143.pdb</ProgramDataBaseFileName>
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <PrecompiledHeaderOutputFile>x64\Debug\D3dRenderFrameWork.pch</PrecompiledHeaderOutputFile>
-      <PreprocessToFile>false</PreprocessToFile>
-      <PreprocessKeepComments>false</PreprocessKeepComments>
-      <PreprocessSuppressLineNumbers>false</PreprocessSuppressLineNumbers>
-      <RemoveUnreferencedCodeData>true</RemoveUnreferencedCodeData>
-      <ScanSourceForModuleDependencies>false</ScanSourceForModuleDependencies>
-      <ShowIncludes>false</ShowIncludes>
-      <SourceDependenciesFile>x64\Debug\</SourceDependenciesFile>
-      <SuppressStartupBanner>true</SuppressStartupBanner>
-      <BufferSecurityCheck>true</BufferSecurityCheck>
-      <SmallerTypeCheck>false</SmallerTypeCheck>
-      <SpectreMitigation>false</SpectreMitigation>
-      <StructMemberAlignment>Default</StructMemberAlignment>
-      <TrackerLogDirectory>x64\Debug\D3dRende.2D9A09AD.tlog\</TrackerLogDirectory>
-      <TranslateIncludes>false</TranslateIncludes>
-      <MinimalRebuildFromTracking>true</MinimalRebuildFromTracking>
-      <TreatWarningAsError>false</TreatWarningAsError>
-      <TreatWChar_tAsBuiltInType>true</TreatWChar_tAsBuiltInType>
-      <UseFullPaths>true</UseFullPaths>
-      <WarningLevel>Level3</WarningLevel>
-      <XMLDocumentationFileName>x64\Debug\</XMLDocumentationFileName>
-      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
-      <IntelJCCErratum>false</IntelJCCErratum>
-      <BuildStlModules>false</BuildStlModules>
-      <TreatAngleIncludeAsExternal>false</TreatAngleIncludeAsExternal>
-      <ExternalWarningLevel>InheritWarningLevel</ExternalWarningLevel>
-      <TreatExternalTemplatesAsInternal>true</TreatExternalTemplatesAsInternal>
-      <DisableAnalyzeExternal>false</DisableAnalyzeExternal>
-      <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;DEBUG;_DEBUG;_CONSOLE;</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
-      <LinkCompiled>true</LinkCompiled>
-    </ClCompile>
+    <ClCompile Include="Engine\render\Material.cpp" />
+    <ClCompile Include="Engine\render\PC\Core\D3D12Device.cpp" />
     <ClCompile Include="Engine\render\PC\Core\D3dCommandListPool.cpp" />
     <ClCompile Include="Engine\render\PC\Core\D3dContext.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -442,8 +385,11 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
+    <ClCompile Include="Engine\render\PC\Core\RenderPass.cpp" />
     <ClCompile Include="Engine\render\PC\Core\ResourceStateTracker.cpp" />
+    <ClCompile Include="Engine\render\PC\D3D12RHI.cpp" />
     <ClCompile Include="Engine\render\PC\D3dUtil.cpp" />
+    <ClCompile Include="Engine\render\PC\Resource\D3D12Resources.cpp" />
     <ClCompile Include="Engine\render\PC\Resource\D3dAllocator.cpp" />
     <ClCompile Include="Engine\render\PC\Resource\RenderTexture.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
@@ -520,7 +466,7 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <ClCompile Include="Engine\render\PC\Resource\Shader.cpp">
+    <ClCompile Include="Engine\render\PC\Resource\HlslShader.cpp">
       <RuntimeLibrary>MultiThreadedDebugDll</RuntimeLibrary>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <Optimization>Disabled</Optimization>
@@ -676,12 +622,12 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="assets\generated\" />
-    <Folder Include="assets\shaders\source\common\" />
+    <Folder Include="Assets\Generated\" />
+    <Folder Include="Assets\Shaders\source\common\" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="assets\configurations\config.ini" />
-    <None Include="assets\configurations\shader.manif" />
+    <Content Include="Assets\Configurations\config.ini" />
+    <None Include="Assets\Configurations\shader.manif" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

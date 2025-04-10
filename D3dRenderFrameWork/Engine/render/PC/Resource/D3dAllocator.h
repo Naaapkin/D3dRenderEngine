@@ -1,4 +1,5 @@
 #pragma once
+#include "D3D12Resources.h"
 #ifdef WIN32
 #include "Engine/pch.h"
 #include "Engine/render/PC/Resource/D3dResource.h"
@@ -6,34 +7,38 @@
 
 class D3dContext;
 struct ResourceManager;
-class StaticBuffer;
-class DynamicBuffer;
+class StaticHeap;
+class DynamicHeap;
 enum class TextureType : uint8_t;
-enum class TextureFormat : uint8_t;
+enum class Format : uint8_t;
 class RenderTexture2D;
 
-class D3dAllocator
+class D3D12RHIFactory
 {
 public:
     // ResourceHandle allocResource TODO:
-    RenderTexture2D* allocDepthStencilResource(uint64_t width, uint64_t height, TextureFormat format) const;
-    DynamicBuffer* allocDynamicBuffer(uint64_t size) const;
-    StaticBuffer* allocStaticBuffer(uint64_t size) const;
-    uint64_t allocRenderTexture2D(uint64_t width, uint64_t height, uint32_t arraySize, TextureFormat format, uint8_t numMips = 1, uint8_t sampleCount = 1, uint8_t sampleQuality = 0, bool isDynamic = false, bool allowSimultaneous = false) const;
-    D3dAllocator();
-    D3dAllocator(D3dContext* pContext);
-    ~D3dAllocator();
-
-    DELETE_COPY_OPERATOR(D3dAllocator)
-    DELETE_COPY_CONSTRUCTOR(D3dAllocator)
-    DEFAULT_MOVE_OPERATOR(D3dAllocator)
-    DEFAULT_MOVE_CONSTRUCTOR(D3dAllocator)
+    static StaticHeap allocDepthStencilResource(uint64_t width, uint64_t height, Format format);
+    static DynamicHeap allocDynamicTexture2D(uint64_t width, uint64_t height, Format format, bool enableMipmap = true,
+                                      bool enableMsaa = false, bool allowParallelAccess = false);
+    static StaticHeap allocStaticTexture2D(uint64_t width, uint64_t height, Format format, bool enableMipmap = true,
+                                    bool enableMsaa = false, bool allowParallelAccess = false);
+    static DynamicHeap allocDynamicBuffer(uint64_t size);
+    static StaticHeap allocStaticBuffer(uint64_t size);
     
 private:
-    D3dResource createD3dResource(D3D12_HEAP_FLAGS heapFlags, const D3D12_HEAP_PROPERTIES& heapProp, const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON, const D3D12_CLEAR_VALUE* pClearValue = nullptr) const;
-    StaticBuffer createStaticBuffer(uint64_t size) const;
-    DynamicBuffer createDynamicBuffer(uint64_t size) const;
-    
-    D3dContext* mD3dContext;
+    static D3dResource createD3dResource(D3D12_HEAP_FLAGS heapFlags, const D3D12_HEAP_PROPERTIES& heapProp, const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState = D3D12_RESOURCE_STATE_COMMON, const D3D12_CLEAR_VALUE* pClearValue = nullptr);
+    static StaticHeap createStaticBuffer(uint64_t size);
+    static DynamicHeap createDynamicBuffer(uint64_t size);
+};
+
+class D3D12UploadAllocator
+{
+public:
+    D3D12Buffer* AllocBuffer(uint64_t size);
+    D3D12Texture*
+private:
+    std::vector<D3D12Resource*> mResources;
+    std::stack<uint64_t> mAvailableResourceAddresses;
+    std::vector<uint64_t> mDeferredDelete;
 };
 #endif

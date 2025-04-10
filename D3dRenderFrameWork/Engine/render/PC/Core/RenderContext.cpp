@@ -15,23 +15,23 @@ void RenderContext::setObjectCbvStartIdx(D3D12_CPU_DESCRIPTOR_HANDLE cbvStartInd
     mObjectCbvStartIdx = cbvStartIndex;
 }
 
-void RenderContext::setRenderTargets(const RenderTexture2D* renderTargets, uint8_t numRenderTargets)
+void RenderContext::setRenderTargets(const StaticHeap* renderTargets, uint8_t numRenderTargets)
 {
     mRenderTargets = renderTargets;
     mNumTargetRenderTarget = numRenderTargets;
 }
 
-void RenderContext::setDepthStencilBuffer(const RenderTexture2D* depthStencilBuffer)
+void RenderContext::setDepthStencilBuffer(const StaticHeap* depthStencilBuffer)
 {
     mDepthStencilBuffer = depthStencilBuffer;
 }
 
-const RenderTexture2D* RenderContext::backBuffer() const
+const StaticHeap* RenderContext::backBuffer() const
 {
     return mRenderTargets;
 }
 
-const RenderTexture2D* RenderContext::depthStencilBuffer() const
+const StaticHeap* RenderContext::depthStencilBuffer() const
 {
     return mDepthStencilBuffer;
 }
@@ -41,21 +41,21 @@ void RenderContext::setCommandQueue(ID3D12CommandQueue* pCommandQueue)
     mCommandQueue = pCommandQueue;
 }
 
-void RenderContext::executeCommandLists(const std::vector<D3dCommandList*>& commandLists) const
+void RenderContext::executeCommandLists(const std::vector<D3D12CommandList*>& commandLists) const
 {
     uint64_t numCommandLists = commandLists.size();
     if (numCommandLists == 0) return;
     D3dCommandListType type = static_cast<D3dCommandListType>(commandLists[0]->nativePtr()->GetType());
     uint64_t finalNumCommandLists = 0;
-    D3dCommandList* lastCommandList = commandLists[0];
+    D3D12CommandList* lastCommandList = commandLists[0];
     ID3D12GraphicsCommandList** cmdLists = new ID3D12GraphicsCommandList*[numCommandLists << 1];
-    std::vector<D3dCommandList*> preExecutionLists{};
+    std::vector<D3D12CommandList*> preExecutionLists{};
     preExecutionLists.reserve(numCommandLists);
     
-    auto&& conversions = lastCommandList->mResourceStateTracker.buildPreTransitions();
+    auto&& conversions = lastCommandList->mResourceStateTracker.BuildPreTransitions();
     if (conversions.size())
     {
-        D3dCommandList* preExecutions = D3dCommandListPool::getCommandList(type); // D3dCommandListPool::getCommandList(mType);
+        D3D12CommandList* preExecutions = D3dCommandListPool::getCommandList(type); // D3dCommandListPool::ObtainCommandList(mType);
         preExecutions->nativePtr()->ResourceBarrier(conversions.size(), conversions.data());
         preExecutions->close();
         cmdLists[0] = preExecutions->nativePtr();
@@ -70,7 +70,7 @@ void RenderContext::executeCommandLists(const std::vector<D3dCommandList*>& comm
         conversions = std::move(commandList->mResourceStateTracker.rightJoin(lastCommandList->mResourceStateTracker));
         if (conversions.size())
         {
-            D3dCommandList* preExecutions = D3dCommandListPool::getCommandList(type);
+            D3D12CommandList* preExecutions = D3dCommandListPool::getCommandList(type);
             preExecutions->nativePtr()->ResourceBarrier(conversions.size(), conversions.data());
             preExecutions->close();
             cmdLists[finalNumCommandLists] = preExecutions->nativePtr();
@@ -86,7 +86,7 @@ void RenderContext::executeCommandLists(const std::vector<D3dCommandList*>& comm
     mCommandQueue->ExecuteCommandLists(finalNumCommandLists, CommandListCast(cmdLists));
     for (auto commandList : commandLists)
     {
-        commandList->mResourceStateTracker.stopTracking(type == D3dCommandListType::COPY);
+        commandList->mResourceStateTracker.StopTracking(type == D3dCommandListType::COPY);
     }
     for (auto preExecutionList : preExecutionLists)
     {
@@ -96,24 +96,24 @@ void RenderContext::executeCommandLists(const std::vector<D3dCommandList*>& comm
 }
 
 // close the command list before calling this func
-void RenderContext::executeCommandList(D3dCommandList* commandList) const
+void RenderContext::executeCommandList(D3D12CommandList* commandList) const
 {
     if (!commandList) return;
     D3dCommandListType type = static_cast<D3dCommandListType>(commandList->nativePtr()->GetType());
-    auto&& conversions = commandList->mResourceStateTracker.buildPreTransitions();
+    auto&& conversions = commandList->mResourceStateTracker.BuildPreTransitions();
     if (!conversions.size())
     {
         ID3D12GraphicsCommandList* p = commandList->nativePtr();
         mCommandQueue->ExecuteCommandLists(1, CommandListCast(&p));
-        commandList->mResourceStateTracker.stopTracking(type == D3dCommandListType::COPY);
+        commandList->mResourceStateTracker.StopTracking(type == D3dCommandListType::COPY);
         return;
     }
-    D3dCommandList* preExecutions = D3dCommandListPool::getCommandList(type);
+    D3D12CommandList* preExecutions = D3dCommandListPool::getCommandList(type);
     preExecutions->nativePtr()->ResourceBarrier(conversions.size(), conversions.data());
     preExecutions->close();
     ID3D12GraphicsCommandList* cmdLists[2] = {preExecutions->nativePtr(), commandList->nativePtr()}; 
     mCommandQueue->ExecuteCommandLists(2, CommandListCast(cmdLists));
-    commandList->mResourceStateTracker.stopTracking(type == D3dCommandListType::COPY);
+    commandList->mResourceStateTracker.StopTracking(type == D3dCommandListType::COPY);
     D3dCommandListPool::recycle(preExecutions);
 }
 
