@@ -2,18 +2,18 @@
 
 static const float2 positions[4] =
 {
-    float2(-1.0, 1.0), // 左上
-    float2(1.0, 1.0), // 右上
-    float2(-1.0, -1.0), // 左下
-    float2(1.0, -1.0) // 右下
+    float2(-1.0, 1.0), // 宸︿笂
+    float2(1.0, 1.0), // 鍙充笂
+    float2(-1.0, -1.0), // 宸︿笅
+    float2(1.0, -1.0) // 鍙充笅
 };
 
 static const float2 uvs[4] =
 {
-    float2(0.0, 0.0), // 左上 UV
-    float2(1.0, 0.0), // 右上 UV
-    float2(0.0, 1.0), // 左下 UV
-    float2(1.0, 1.0) // 右下 UV
+    float2(0.0, 0.0), // 宸︿笂 UV
+    float2(1.0, 0.0), // 鍙充笂 UV
+    float2(0.0, 1.0), // 宸︿笅 UV
+    float2(1.0, 1.0) // 鍙充笅 UV
 };
 
 struct VSOutput
@@ -22,28 +22,29 @@ struct VSOutput
     float2 uv : TEXCOORD0;
 };
 
+cbuffer UIConstants : register(b1)
+{
+    float3x3 transform;
+    float4 color;
+    float blendFactor;
+};
+
 VSOutput VS(uint vertexID : SV_VertexID)
 {
     VSOutput output;
-    output.position = float4(positions[vertexID], 0.0, 1.0);
+    output.position = float4(mul(transform, float3(positions[vertexID], 1)), 1.0);
     output.uv = uvs[vertexID];
     return output;
 }
-
-// 常量缓冲区：UI颜色和纹理开关
-cbuffer UIConstants : register(b1)
-{
-    float4 m_color;
-    float useTexture;
-};
 
 Texture2D uiTexture : register(t1);
 
 float4 PS(VSOutput input) : SV_Target
 {
-    if (useTexture > 0.5)
+    float4 texColor = uiTexture.Sample(LinearSampler, input.uv);
+    if (texColor.w < 0.5)
     {
-        return step(useTexture, 0.5) * uiTexture.Sample(LinearSampler, input.uv) * m_color;
+        discard;
     }
-    return m_color; // 直接返回固定颜色
+    return float4(lerp(blendFactor, color.xyz, texColor.xyz), color.w);
 }

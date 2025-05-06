@@ -141,8 +141,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         float elapsedTime = static_cast<float>(end.QuadPart - start.QuadPart) * 1000.0 / static_cast<float>(frequency.QuadPart);
         deltaTime = static_cast<float>(end.QuadPart - stamp.QuadPart) * 1000.0 / static_cast<float>(frequency.QuadPart);
         stamp = end;
-        OutputDebugString(std::to_wstring(deltaTime).c_str());
-        OutputDebugString(TEXT("\n"));
+        /*OutputDebugString(std::to_wstring(deltaTime).c_str());
+        OutputDebugString(TEXT("\n"));*/
         renderList.mOpaqueList[0].mModel = DirectX::XMMatrixRotationY(elapsedTime * 0.00018f);
         renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
 

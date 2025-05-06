@@ -138,15 +138,21 @@ std::unique_ptr<RHIShader> D3D12RHI::RHICompileShader(const Blob& binary, Shader
 
 std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingBuffer(uint64_t size)
 {
-    RHINativeBuffer* pCBuffer = new D3D12ConstantBuffer(mStagingBufferAllocator->Allocate(size));
+    RHINativeBuffer* pCBuffer = new D3D12StagingBuffer(mStagingBufferAllocator->Allocate(size));
     return std::make_unique<RHIStagingBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
 }
 
- std::unique_ptr<RHIConstantBuffer> D3D12RHI::RHIAllocConstantBuffer(uint64_t size)
+std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingTexture(uint64_t size)
+{
+    RHINativeBuffer* pCBuffer = new D3D12StagingBuffer(mStagingBufferAllocator->AllocateAligned(size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT));
+    return std::make_unique<RHIStagingBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
+}
+
+std::unique_ptr<RHIConstantBuffer> D3D12RHI::RHIAllocConstantBuffer(uint64_t size)
  {
      RHINativeBuffer* pCBuffer = new D3D12ConstantBuffer(
          mConstantBufferAllocator->Allocate(
-             ::AlignUpToMul<uint64_t, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>()(size)));
+	         ::AlignUpToMul<uint64_t, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>()(size)));
      return std::make_unique<RHIConstantBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
  }
 

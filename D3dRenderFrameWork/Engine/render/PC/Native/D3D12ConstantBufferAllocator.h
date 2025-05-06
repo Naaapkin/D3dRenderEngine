@@ -50,6 +50,7 @@ public:
     void Initialize(D3D12Device* pDevice, uint64_t poolSize = 4ull * 1024 * 1024 /* 4MB default */);
     const D3D12Resource* GetD3D12Resource() const;
     Allocation Allocate(uint64_t size);
+    Allocation AllocateAligned(uint64_t size, uint64_t alignment);
     uint64_t GetTotalSize() const;
     void Reset();
     D3D12RingBufferAllocator();
@@ -234,6 +235,20 @@ inline Allocation D3D12RingBufferAllocator::Allocate(uint64_t size)
 {
     // Constant buffers must be 256-byte aligned
     uint64_t offset = mRingAllocator.Allocate(size);
+    if (offset == MAXUINT64) WARN("failed to allocate constant buffer");
+    Allocation allocation;
+    allocation.mGPUAddress = mBaseGPUVirtualAddress + offset;
+    allocation.mCPUAddress = static_cast<uint8_t*>(mCPUVirtualAddress) + offset;
+    allocation.mOffset = offset;
+    allocation.mSize = size;
+
+    return allocation;
+}
+
+inline Allocation D3D12RingBufferAllocator::AllocateAligned(uint64_t size, uint64_t alignment)
+{
+    // Constant buffers must be 256-byte aligned
+    uint64_t offset = mRingAllocator.AllocateAligned(size, alignment);
     if (offset == MAXUINT64) WARN("failed to allocate constant buffer");
     Allocation allocation;
     allocation.mGPUAddress = mBaseGPUVirtualAddress + offset;

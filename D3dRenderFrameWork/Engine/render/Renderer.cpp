@@ -255,7 +255,7 @@ void Renderer::updateTexture(const void* pData, TextureRef textureGPU, bool bloc
 	const RHITextureDesc& desc = pTexture->GetDesc();
 	uint64_t size = desc.mWidth * desc.mHeight * desc.mDepth;
 	// TODO: support update multi-mips
-	std::unique_ptr<RHIStagingBuffer> pStagingBuffer = mRenderHardwareInterface->RHIAllocStagingBuffer(size);
+	std::unique_ptr<RHIStagingBuffer> pStagingBuffer = mRenderHardwareInterface->RHIAllocStagingTexture(size);
 	mRenderHardwareInterface->UpdateStagingBuffer(pStagingBuffer.get(), pData, 0, size);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
 	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());

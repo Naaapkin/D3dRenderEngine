@@ -28,6 +28,28 @@ public:
         return offset;
     }
 
+    uint64_t AllocateAligned(uint64_t size, uint64_t alignment)
+    {
+        ASSERT((alignment & (alignment - 1)) == 0, TEXT("alignment must be power of two"));
+        if (size == 0 || alignment == 0) {
+            return MAXUINT64; // 非法参数
+        }
+
+        // 计算当前 tail 对齐后的 offset
+        uint64_t alignedOffset = (mTail + alignment - 1) & ~(alignment - 1);
+
+        // 如果对齐后 + size 超出总大小，则从头开始
+        if (alignedOffset + size > mTotalSize) {
+            alignedOffset = 0;
+            mTail = alignedOffset + size;
+            return alignedOffset;
+        }
+
+        // 正常分配
+        mTail = alignedOffset + size;
+        return alignedOffset;
+    }
+
     void Reset()
     {
         mTail = 0;
@@ -54,7 +76,7 @@ public:
         mOccupiedSize = 0;
     }
 
-    // Allocate from tail
+    // AllocateAligned from tail
     uint64_t Allocate(uint64_t size = 1)
     {
         if (size > mTotalSize)
@@ -67,6 +89,44 @@ public:
         mTail = (mTail + size) % mTotalSize;
         mOccupiedSize += size;
         return offset; // return the offset
+    }
+
+    uint64_t AllocateAligned(uint64_t size, uint64_t alignment)
+    {
+        ASSERT((alignment & (alignment - 1)) == 0, TEXT("alignment must be power of two"));
+        if (size > mTotalSize || alignment == 0)
+            return UINT64_MAX; // Fail: invalid size or alignment not power of two
+
+        // Try to align from current tail
+        uint64_t alignedTail = (mTail + alignment - 1) & ~(alignment - 1);
+        uint64_t padding = alignedTail - mTail;
+        uint64_t totalRequired = padding + size;
+
+        if (totalRequired > mTotalSize)
+            return UINT64_MAX; // Fail: impossible even with wrap
+
+        // Case 1: enough space from tail to end (no wrap)
+        if (mTail + totalRequired <= mTotalSize) {
+            if (mOccupiedSize + totalRequired > mTotalSize)
+                return UINT64_MAX; // Fail: not enough room
+            uint64_t offset = alignedTail;
+            mTail = (mTail + totalRequired) % mTotalSize;
+            mOccupiedSize += totalRequired;
+            return offset;
+        }
+
+        // Case 2: wrap-around: align from beginning
+        alignedTail = 0;
+        padding = alignedTail; // usually 0
+        totalRequired = padding + size;
+
+        if (mOccupiedSize + totalRequired > mTotalSize)
+            return UINT64_MAX; // Fail: not enough space after wrap
+
+        uint64_t offset = alignedTail;
+        mTail = totalRequired; // after wrap
+        mOccupiedSize += totalRequired;
+        return offset;
     }
 
     // Free from head

@@ -35,6 +35,7 @@ public:
     virtual std::unique_ptr<RHISwapChain>   RHICreateSwapChain(const RHISwapChainDesc& desc) = 0;
     //virtual std::unique_ptr<RHINativeBuffer>      RHIAllocBuffer(uint64_t size) = 0;
     virtual std::unique_ptr<RHIStagingBuffer> RHIAllocStagingBuffer(uint64_t size) = 0;
+    virtual std::unique_ptr<RHIStagingBuffer> RHIAllocStagingTexture(uint64_t size) = 0;
     virtual std::unique_ptr<RHIConstantBuffer> RHIAllocConstantBuffer(uint64_t size) = 0;
     virtual std::unique_ptr<RHINativeTexture>     RHIAllocTexture(RHITextureDesc desc) = 0;
     virtual std::unique_ptr<RHIDepthStencil> RHIAllocDepthStencil(RHITextureDesc desc) = 0;

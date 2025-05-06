@@ -17,9 +17,9 @@ class D3D12RHI : public RHI
 public:
     void Initialize(const RHIConfiguration& configuration) override;
     std::unique_ptr<RHIShader>          RHICompileShader(const Blob& binary, ShaderType activeTypes, const std::string* path = nullptr) override;
-    //std::unique_ptr<RHINativeBuffer>      RHIAllocBuffer(uint64_t size) override;
     std::unique_ptr<RHIStagingBuffer>   RHIAllocStagingBuffer(uint64_t size) override;
-    std::unique_ptr<RHIConstantBuffer>  RHIAllocConstantBuffer(uint64_t size) override;  // @deprecated, use RHIGraphicsContext::AllocaConstantBuffer instead
+    std::unique_ptr<RHIStagingBuffer>   RHIAllocStagingTexture(uint64_t size) override;
+    std::unique_ptr<RHIConstantBuffer>  RHIAllocConstantBuffer(uint64_t size) override;
     std::unique_ptr<RHINativeTexture>   RHIAllocTexture(RHITextureDesc desc) override;
     std::unique_ptr<RHIDepthStencil>    RHIAllocDepthStencil(RHITextureDesc desc) override;
     std::unique_ptr<RHIRenderTarget>    RHIAllocRenderTarget(RHITextureDesc desc) override;
