@@ -1,6 +1,6 @@
 #pragma once
 
-class Shader
+class D3D12RenderContext
 {
 public:
     
