@@ -1,6 +1,11 @@
-#include "common/Transform.hlsl"
-
-Transform(b1)
+cbuffer ObjectConstants : register(b1) {
+    float4x4 m_model;
+    float4x4 m_view;
+    float4x4 m_projection;
+    float4x4 m_model_i;
+	float4x4 m_view_i;
+    float4x4 m_projection_i;
+};
 
 struct SimpleVertexInput
 {
@@ -21,4 +26,3 @@ FragInput VsMain(SimpleVertexInput input)
     o.position = mul(m_projection, mul(m_view, worldPosition));
     return o;
 }
-

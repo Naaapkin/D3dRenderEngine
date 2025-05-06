@@ -3,26 +3,59 @@
 #include "Engine/render/MeshData.h"
 #include "Engine/render/Material.h"
 
+struct CameraConstants
+{
+    DirectX::XMMATRIX mView;
+    DirectX::XMMATRIX mProjection;
+    DirectX::XMMATRIX mViewInverse;
+    DirectX::XMMATRIX mProjectionInverse;
+};
+
+struct InstanceData
+{
+    DirectX::XMMATRIX mModel;
+    DirectX::XMMATRIX mModelInverse;
+};
+
 struct alignas(256) TransformConstants
 {
     DirectX::XMMATRIX mModel;
     DirectX::XMMATRIX mView;
     DirectX::XMMATRIX mProjection;
+    DirectX::XMMATRIX mModelInverse;
+    DirectX::XMMATRIX mViewInverse;
+    DirectX::XMMATRIX mProjectionInverse;
+};
+
+// only support forward render path currently
+enum class RenderPass : uint8_t
+{
+    FORWARD_PRE_DEPTH = 0b1,
+    FORWARD_SHADOW = 0b10,
+    FORWARD_OPAQUE = 0b100,
+    FORWARD_TRANSPARENT = 0b1000,
+    FORWARD_POST_TRANSPARENT = 0b10000,
+    FORWARD_POST_PROCESS = 0b100000,
+
+    DEFERRED_GEOMETRY = 0b100000,
+    DEFERRED_LIGHTING = 0b1000000,
 };
 
 struct RenderItem
 {
-    RenderItem() : mModel(DirectX::XMMatrixIdentity()), mMeshData(), mMaterial(nullptr) {}
-    RenderItem(DirectX::FXMMATRIX model, MaterialInstance* material, MeshData meshData) : mModel(model), mMeshData(std::move(meshData)), mMaterial(material) {}
-    
-    DirectX::XMMATRIX mModel;
-    MeshData mMeshData;
-    MaterialInstance* mMaterial;
+    DirectX::XMMATRIX mModel = DirectX::XMMatrixIdentity();   // TODO: Support sub mesh
+    DirectX::XMMATRIX mModelInverse = DirectX::XMMatrixIdentity();
+	MeshData mMeshData{MAXUINT64, MAXUINT64 , 0, 0, nullptr, 0};
+    MaterialInstance* mMaterial = nullptr;
 };
 
 struct RenderList final
 {
-    DirectX::XMMATRIX mView;
-    DirectX::XMMATRIX mProj;
-    std::vector<RenderItem> mRenderItems;
+    //FrameBufferRef mFrameBuffer;  // nullptr to force rendering to screen.
+    CameraConstants mCameraConstants;
+    uint8_t mStencilValue;
+    Float4 mBackGroundColor;
+    std::vector<RenderItem> mOpaqueList;
+    std::vector<RenderItem> mTransparentList;
+    std::vector<RenderItem> mUIElements;
 };

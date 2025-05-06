@@ -1,9 +1,9 @@
+#ifdef WIN32
 #include "ResourceStateTracker.h"
 
 #include "Engine/common/Exception.h"
 #include "Engine/render/PC/D3dUtil.h"
 #include "Engine/render/PC/Resource/D3D12Resources.h"
-#include "Engine/render/PC/Resource/D3dResource.h"
 
 StateConverter::~StateConverter()
 {
@@ -30,7 +30,7 @@ bool StateConversion::isGeneralConversion() const
 std::vector<StateConversion> StateConverter::ConvertState(ResourceState dstState)
 {
     std::vector<StateConversion> conversions;
-    mConverterState |= 0b100;   // make dirty
+    //mConverterState |= 0b100;   // make dirty
     if (!(mConverterState & 0b001))
     {
         conversions.resize(mNumSubResources);
@@ -48,9 +48,9 @@ std::vector<StateConversion> StateConverter::ConvertState(ResourceState dstState
 
     auto& srcState = mLastStates[0];
     // 1.mLastStates[0] != ResourceState::UNKNOWN: first conversion -- resolved on execution.
-    // 2.gImplicitTransit: check if this conversion can be done implicitly -- we need to return if this conversion should be done explicitly, so negate it.
+    // 2.ImplicitTransition: check if this conversion can be done implicitly -- we need to return if this conversion should be done explicitly, so negate it.
     bool isFirstConversion = srcState == ResourceState::UNKNOWN;
-    bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
+    bool isExplicitConversion = !::ImplicitTransition(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
     if (isFirstConversion)
     {
         std::fill_n(mFirstDstStates, mNumSubResources, dstState);
@@ -69,17 +69,17 @@ std::vector<StateConversion> StateConverter::ConvertState(ResourceState dstState
 //              conversion.first will get the src state if returns true. 
 bool StateConverter::ConvertSubResource(StateConversion& conversion)
 {
-    // all initial states are same = dirty, all destination states are same = false, make dirty;
+    // all initial states are same = isDirty, all destination states are same = false, make dirty;
     mConverterState = mConverterState >> 1 & 0b110 | 0b100; 
     return ConvertSubResourceImpl(conversion);
 }
 
 bool StateConverter::ConvertSubResourceImpl(StateConversion& conversion) const
 {
-    auto& dstState = conversion.mDstState;
-    auto& srcState = mLastStates[conversion.mIdx];
+    ResourceState& dstState = conversion.mDstState;
+    ResourceState& srcState = mLastStates[conversion.mIdx];
     bool isFirstConversion = srcState == ResourceState::UNKNOWN;
-    bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
+    bool isExplicitConversion = !::ImplicitTransition(static_cast<uint32_t>(srcState), *reinterpret_cast<uint32_t*>(&dstState), mIsBufferOrSimultaneous);
     mFirstDstStates[conversion.mIdx] = isFirstConversion ? dstState : mFirstDstStates[conversion.mIdx];
     const bool ret = !isFirstConversion && isExplicitConversion; 
     if (ret) conversion.mSrcState = srcState;       // fill the src state
@@ -96,7 +96,7 @@ std::vector<StateConversion> StateConverter::PreConvert(const ResourceState* src
         StateConversion conversion{};
         conversion.mSrcState = srcStates[0];
         conversion.mDstState = mFirstDstStates[0];
-        bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(conversion.mSrcState),
+        bool isExplicitConversion = !::ImplicitTransition(static_cast<uint32_t>(conversion.mSrcState),
                            *reinterpret_cast<uint32_t*>(&conversion.mDstState), mIsBufferOrSimultaneous);
         if (isExplicitConversion)
         {
@@ -113,7 +113,7 @@ std::vector<StateConversion> StateConverter::PreConvert(const ResourceState* src
         StateConversion conversion{i};
         conversion.mSrcState = srcStates[i];
         conversion.mDstState = mFirstDstStates[i];
-        if (!::gImplicitTransit(static_cast<uint32_t>(conversion.mSrcState),
+        if (!::ImplicitTransition(static_cast<uint32_t>(conversion.mSrcState),
                                                      *reinterpret_cast<uint32_t*>(&conversion.mDstState),
                                                      mIsBufferOrSimultaneous))
         {
@@ -124,13 +124,13 @@ std::vector<StateConversion> StateConverter::PreConvert(const ResourceState* src
     return conversions;
 }
 
-std::vector<StateConversion> StateConverter::Join(StateConverter& stateConverter)
+std::vector<StateConversion> StateConverter::Join(const StateConverter& stateConverter)
 {
     std::vector<StateConversion> conversions(0);
 
     // --------- folded to folded before conversion-----------
-    // what we need to do is just add a total-resource-conversion between 'stateConverter' and this.
-    // and add the conversion if it's explicit and is not the first conversion.
+    // what we need to do is just add a total-resource-conversion between 'stateConverter' and this
+    // if the conversion is explicit and not the first conversion.
     // ------------------other conditions---------------------
     // UnFold 'stateConverter'.
     // UnFold 'mFirstDstStates' if this resource is folded before conversion.
@@ -138,41 +138,38 @@ std::vector<StateConversion> StateConverter::Join(StateConverter& stateConverter
     // invoke stateConverter.ConvertSubResourceImpl() for every dst states in 'mFirstDstStates', count the explicit conversions and add the conversion to 'conversions'.
     // return conversions;
 
-    if (mConverterState & 0b010 && stateConverter.mConverterState & 0b001)
+    if (stateConverter.mConverterState & 0b010 && mConverterState & 0b001)
     {
         if (mFirstDstStates[0] != ResourceState::UNKNOWN)
         {
             StateConversion conversion{};
-            conversion.mSrcState = stateConverter.mLastStates[0];
-            conversion.mDstState = mFirstDstStates[0];
-            bool isExplicitConversion = !::gImplicitTransit(static_cast<uint32_t>(conversion.mSrcState),
+            conversion.mSrcState = mLastStates[0];
+            conversion.mDstState = stateConverter.mFirstDstStates[0];
+            bool isExplicitConversion = !::ImplicitTransition(static_cast<uint32_t>(conversion.mSrcState),
                                *reinterpret_cast<uint32_t*>(&conversion.mDstState), mIsBufferOrSimultaneous);
             if (isExplicitConversion)
             {
                 conversions.reserve(1);
                 conversions.push_back(conversion);
             }
-            return conversions;
         }
     }
     else
     {
-        stateConverter.mConverterState &= 0b110;
+        mConverterState &= 0b110;   // subresources will be in different states after this transition
         conversions.resize(mNumSubResources);
         uint64_t numExplicitConversions = 0;
         for (uint64_t i = 0; i < mNumSubResources; ++i)
         {
             auto& conversion = conversions[numExplicitConversions];
             conversion.mIdx = i;
-            conversion.mDstState = mFirstDstStates[i];
-            numExplicitConversions += mFirstDstStates[i] != ResourceState::UNKNOWN && ConvertSubResourceImpl(conversion);
+            conversion.mDstState = stateConverter.mFirstDstStates[i];
+            numExplicitConversions += ConvertSubResourceImpl(conversion);
         }
     }
-    delete[] mFirstDstStates;
-    delete[] stateConverter.mLastStates;
-    mFirstDstStates = stateConverter.mFirstDstStates;
-    stateConverter.mFirstDstStates = nullptr;
-    stateConverter.mLastStates = nullptr;
+    memcpy(mLastStates, stateConverter.mLastStates, sizeof(ResourceState) * mNumSubResources);
+    std::fill_n(stateConverter.mFirstDstStates, mNumSubResources, ResourceState::UNKNOWN);
+    std::fill_n(stateConverter.mLastStates, mNumSubResources, ResourceState::UNKNOWN);
     return conversions;
 }
 
@@ -195,7 +192,7 @@ void StateConverter::Reset()
 {
     std::fill_n(mFirstDstStates, mNumSubResources, ResourceState::UNKNOWN);
     std::fill_n(mLastStates, mNumSubResources, ResourceState::UNKNOWN);
-    mConverterState = 0b001;
+    mConverterState = 0b011;
 }
 
 StateConverter::StateConverter() = default;
@@ -241,36 +238,51 @@ void StateConverter::TryFold()
     {
         canFold = mLastStates[i - 1] == mLastStates[i];
     }
-    mConverterState |= canFold;
+    mConverterState = (mConverterState & 0b110) | canFold;
 }
 
-void ResourceStateTracker::Track(D3D12Buffer& buffer)
+void ResourceStateTracker::AppendResource(const D3D12Resource* pResource, ResourceState initialState)
 {
-    mStateConverters.try_emplace(&buffer, StateConverter{buffer.GetSubResourceCount(), true});
+    sGlobalResourceStateMutex.lock();
+    std::vector<ResourceState> states{ pResource->GetSubResourceCount() };
+    std::fill_n(states.begin(), states.size(), initialState);
+    sGlobalResourceStates.emplace(pResource, std::move(states));
+    sGlobalResourceStateMutex.unlock();
 }
 
-void ResourceStateTracker::Track(D3D12Texture& texture)
+void ResourceStateTracker::RemoveResource(const D3D12Resource* pResource)
 {
-    mStateConverters.try_emplace(&texture, StateConverter{texture.GetSubResourceCount(), false});
+    sGlobalResourceStateMutex.lock();
+    sGlobalResourceStates.erase(pResource);
+    sGlobalResourceStateMutex.unlock();
 }
 
-std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::rightJoin(ResourceStateTracker& other)
+//void ResourceStateTracker::Track(const D3D12Resource& pResource)
+//{
+//    D3D12_RESOURCE_DESC&& desc = pResource.D3D12ResourcePtr()->GetDesc();
+//    mStateConverters.try_emplace(&pResource, pResource.GetSubResourceCount(),
+//        desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER || desc.Flags &
+//        D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS);
+//}
+
+std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::Join(ResourceStateTracker& other)
 {
     std::vector<D3D12_RESOURCE_BARRIER> barriers{64}; // TODO: 
     for (auto& pair : other.mStateConverters)
     {
-        StateConverter* pConverter = GetStateConverter(pair.first);
-        if (!pConverter)
+        auto it = mStateConverters.find(pair.first);
+        if (it == mStateConverters.end())
         {
             mStateConverters.emplace(pair.first, std::move(pair.second));
             continue;
         }
-        auto&& conversions = pair.second.Join(*pConverter);
+        StateConverter& converter = it->second;
+        auto&& conversions = converter.Join(pair.second);
         if (conversions.empty()) continue;
         if (conversions[0].mIdx == 0xffffffff)
         {
             auto& conversion = conversions[0];
-            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->NativeResource(),
+            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->D3D12ResourcePtr(),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
                 D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
@@ -279,18 +291,18 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::rightJoin(ResourceStat
         for (uint64_t i = 0; i < conversions.size(); ++i)
         {
             const auto& conversion = conversions[i];
-            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->NativeResource(),
+            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->D3D12ResourcePtr(),
                                                                static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
                                                                static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
                                                                conversion.mIdx));
         }
     }
-    other.Cancel();
+    Cancel();
     return barriers;
 }
 
 std::pair<bool, D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertSubResourceState(
-    D3D12Resource* pResource, uint32_t subResourceIndex, ResourceState dstState)
+    const D3D12Resource* pResource, uint32_t subResourceIndex, ResourceState dstState)
 {
     auto* converter = GetStateConverter(pResource);
 #if defined(DEBUG) or defined(_DEBUG)
@@ -299,7 +311,7 @@ std::pair<bool, D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertSubResource
     StateConversion conversion{subResourceIndex, ResourceState::UNKNOWN, dstState};
     if (converter->ConvertSubResource(conversion))
     {
-        return {true, CD3DX12_RESOURCE_BARRIER::Transition(pResource->NativeResource(),
+        return {true, CD3DX12_RESOURCE_BARRIER::Transition(pResource->D3D12ResourcePtr(),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
             subResourceIndex)};
@@ -307,19 +319,17 @@ std::pair<bool, D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertSubResource
     return {false, {}};
 }
 
-std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertResourceState(D3D12Resource* pResource, ResourceState dstState)
+std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertResourceState(const D3D12Resource* pResource, ResourceState dstState)
 {
-    std::vector<D3D12_RESOURCE_BARRIER> barriers{};
-    auto* converter = GetStateConverter(pResource);
-#if defined(DEBUG) or defined(_DEBUG)
-    ASSERT(converter, TEXT("resource not declared as used\n"));
-#endif
+    StateConverter* converter = GetStateConverter(pResource);
+    if (!converter) return {};
+	std::vector<D3D12_RESOURCE_BARRIER> barriers{};
     auto&& conversions = converter->ConvertState(dstState);
     if (conversions.empty()) return barriers;
     if (conversions[0].mIdx == 0xffffffff)
     {
         auto& conversion = conversions[0];
-        barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource->NativeResource(),
+        barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource->D3D12ResourcePtr(),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
             D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES));
@@ -329,7 +339,7 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::ConvertResourceState(D
     for (uint64_t i = 0; i < conversions.size(); ++i)
     {
         const auto& conversion = conversions[i];
-        barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource->NativeResource(),
+        barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pResource->D3D12ResourcePtr(),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
             static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
             conversion.mIdx));
@@ -344,19 +354,21 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::BuildPreTransitions() 
     for (auto& pair : mStateConverters)
     {
         auto& converter = pair.second;
-        auto&& conversions = std::move(converter.PreConvert(sGlobalResourceStates[pair.first].data()));
+        sGlobalResourceStateMutex.lock_shared();
+        auto&& conversions = converter.PreConvert(sGlobalResourceStates[pair.first].data());
+        sGlobalResourceStateMutex.unlock_shared();
         if (conversions.empty()) continue;
         if (conversions[0].mIdx == 0xffffffff)
         {
             auto& conversion = conversions[0];
-            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->NativeResource(),
+            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->D3D12ResourcePtr(),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState)));
             continue;
         }
         for (const auto& conversion : conversions)
         {
-            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->NativeResource(),
+            barriers.emplace_back(CD3DX12_RESOURCE_BARRIER::Transition(pair.first->D3D12ResourcePtr(),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mSrcState),
                 static_cast<D3D12_RESOURCE_STATES>(conversion.mDstState),
                 conversion.mIdx));
@@ -367,13 +379,14 @@ std::vector<D3D12_RESOURCE_BARRIER> ResourceStateTracker::BuildPreTransitions() 
 
 void ResourceStateTracker::StopTracking(bool isCopyQueue)
 {
+    sGlobalResourceStateMutex.lock();
     for (auto& pair : mStateConverters)
     {
         StateConverter& converter = pair.second;
         auto& currentStates = sGlobalResourceStates[pair.first];
         if (isCopyQueue)
         {
-            std::fill_n(currentStates.begin(), currentStates.size(), ResourceState::UNKNOWN);
+            std::fill_n(currentStates.data(), currentStates.size(), ResourceState::UNKNOWN);
         }
         else
         {
@@ -383,6 +396,7 @@ void ResourceStateTracker::StopTracking(bool isCopyQueue)
         converter.Reset();
     }
     mStateConverters.clear();
+    sGlobalResourceStateMutex.unlock();
 }
 
 void ResourceStateTracker::Cancel()
@@ -390,11 +404,15 @@ void ResourceStateTracker::Cancel()
     mStateConverters.clear();
 }
 
-StateConverter* ResourceStateTracker::GetStateConverter(D3D12Resource* pResource)
+StateConverter* ResourceStateTracker::GetStateConverter(const D3D12Resource* pResource)
 {
-    const auto it = mStateConverters.find(pResource);
-    if (it == mStateConverters.end()) return nullptr;
-    return &it->second;
+    D3D12_RESOURCE_DESC&& desc = pResource->D3D12ResourcePtr()->GetDesc();
+    const auto it = mStateConverters.try_emplace(pResource, pResource->GetSubResourceCount(),
+        desc.Dimension == D3D12_RESOURCE_DIMENSION_BUFFER || desc.Flags &
+        D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS);
+    return &it.first->second;
 }
 
-std::unordered_map<D3D12Resource*, std::vector<ResourceState>, HashPtrAsTyped<D3D12Resource*>> sGlobalResourceStates = {};
+std::unordered_map<const D3D12Resource*, std::vector<ResourceState>> ResourceStateTracker::sGlobalResourceStates{};
+std::shared_mutex ResourceStateTracker::sGlobalResourceStateMutex{};
+#endif

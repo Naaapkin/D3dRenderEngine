@@ -1,61 +1,56 @@
 #pragma once
-#include "Engine/memory/LinearAllocator.h"
-#include "Engine/render/RHIDefination.h"
-#include "Engine/render/PC/Native/D3D12Device.h"
-#include "Engine/render/PC/Private/ResourceStateTracker.h"
-
 #ifdef WIN32
+#include "ResourceStateTracker.h"
+#include "Engine/render/PC/Native/D3D12CommandObjectPool.h"
+#include "Engine/render/PC/Native/D3D12DescriptorAllocator.h"
 
-class D3D12CommandNative;
-class MaterialInstance;
-class D3D12FrameResource;
-class D3D12DescriptorHeap;
-class RHICommand;
-class D3D12CommandExecutor;
-class D3D12FrameBuffer;
-class RHIPixelShader;
-class RHIGeometryShader;
-class RHIDomainShader;
-class RHIHullShader;
-class RHIVertexShader;
-class D3D12Command;
+struct PipelineInitializer;
+struct D3D12RootSignature;
+class D3D12RootSignatureManager;
+class D3D12PipelineStateManager;
+struct TextureCopyLocation;
 
-class D3D12CommandContext : D3D12DeviceChild, public RHICommandContext
+class D3D12CommandContext
 {
+    friend class D3D12RHI;
 public:
-    void Reset() override;
-    void CopyResource(RHIResource* pDst, RHIResource* pSrc) override;
-    void CopyBuffer(RHIBuffer* pDst, RHIBuffer* pSrc, uint64_t size, uint64_t dstStart, uint64_t srcStart) override;
-    void CopyTexture(RHITexture* pDst, RHIResource* pSrc, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& location) override;
-    void SetViewPorts(Viewport* viewports, uint32_t numViewports) override;
-    void SetScissorRect(Rect* scissorRects, uint32_t numScissorRects) override;
-    void SetRenderTargetsAndDepthStencil(RHIFrameBuffer** renderTargets, uint32_t numRenderTargets, RHIFrameBuffer* depthStencilTarget) override;
-    void ClearRenderTarget(RHIFrameBuffer* pRenderTarget, Float4 clearColor, const Rect* clearRects, uint32_t numRects) override;
-    void ClearDepthStencil(RHIFrameBuffer* depthStencil, bool clearDepth, bool clearStencil, float depth, uint32_t stencil, const Rect* clearRects, uint32_t numRects) override;
-    void BindVertexBuffers(RHIVertexBuffer* pVertexBuffer) override;
-    void BindIndexBuffer(RHIIndexBuffer* pIndexBuffer) override;
-    void SetPipelineState(const PipelineInitializer& pPipelineInitializer) override;
-    void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t startIndexLocation, uint32_t instanceCount) override;
-    std::vector<LinearAllocator::Handle<RHICommand>> Finalize(CommandListType type) override;
-    
-    void TransitionResource(RHIResource* pResource, uint32_t subResource, ResourceState state);
-    void TransitionResource(RHIResource* pResource, ResourceState state);
-    void SetRootSignatureParas(uint8_t materialConstantPara, uint8_t materialTexturePara);
-    void InsertNativeCommand(const std::function<void(D3D12CommandNative* pCommand)>& injection);
+    static void CopyBuffer(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, uint64_t size, uint64_t dstStart, uint64_t srcStart);
+    static void CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, uint32_t baseSubResourceIndex,
+                            uint32_t numSubResources);
+    static void CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, const TextureCopyLocation&
+                            dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth = 1);
+    static void CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation);
+
+    void Initialize1(D3D12Device* pDevice, RingDescriptorAllocator* pOnlineAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager* pRootSigManager);
+    //void Initialize2(ID3D12CommandQueue* directQueue, ID3D12CommandQueue* copyQueue, ID3D12CommandQueue* computeQueue);
+    void AllocDescriptors(std::unique_ptr<D3D12DescriptorHandle[]>& pDescriptors, D3D12DescriptorHandle*& pTextures, const D3D12RootSignature* pRootSignature) const;
+    ID3D12PipelineState* GetPipelineStateObject(
+	    const D3D12RootSignature* pRootSignature,
+	    const PipelineInitializer& pPipelineInitializer) const;
+    void GetOnlineDescriptorHeaps(std::unique_ptr<ID3D12DescriptorHeap*[]>& ppOnlineDescriptorHeaps, uint16_t& numHeaps) const;
+    const D3D12RootSignature* GetRootSignature(/*const std::string& name*/) const;
+    //ID3D12CommandQueue* GetDirectQueue() const;
+    //ID3D12CommandQueue* GetCopyQueue() const;
+    //ID3D12CommandQueue* GetComputeQueue() const;
+    D3D12Device* GetDevice() const;
+
+    //void TransitionResource(const D3D12Resource* pResource, uint32_t subResource, ResourceState state);
+    //void TransitionResource(const D3D12Resource* pResource, ResourceState state);
 
     D3D12CommandContext();
-    D3D12CommandContext(D3D12Device* parent);
-
-    GUID Guid() const override = delete;
 
 private:
-    // root signature
-    uint8_t mMaterialCBufferPara;
-    uint8_t mMaterialTexturePara;
-    //
-    
-    ResourceStateTracker mResourceStateTracker;
-    LinearAllocator mAllocator;
-    std::vector<LinearAllocator::Handle<RHICommand>> mCommandsBuffer;
+    // global reference
+    D3D12Device* mDevice;
+    D3D12PipelineStateManager* mPSOManager;
+    D3D12RootSignatureManager* mRootSignatureManager;
+    RingDescriptorAllocator* mOnlineDescriptorAllocator;
+
+    UComPtr<ID3D12Resource> mDummyCBuffer;
+    UComPtr<ID3D12Resource> mDummyTexture;
+
+    //ID3D12CommandQueue* mDirectQueue;
+    //ID3D12CommandQueue* mCopyQueue;
+    //ID3D12CommandQueue* mComputeQueue;
 };
 #endif

@@ -140,7 +140,7 @@ void DynamicBlockAllocator<T>::Initialize(uint64_t capacity, uint64_t growBlockS
     mFreeBlocks = new uint64_t[mCapacity];
     mFreeBlocksSize = mCapacity;
         
-    // Initialize Free blocks stack
+    // Initialize Reset blocks stack
     for (uint64_t i = 0; i < mCapacity; ++i)
     {
         mFreeBlocks[i] = mCapacity - i - 1;

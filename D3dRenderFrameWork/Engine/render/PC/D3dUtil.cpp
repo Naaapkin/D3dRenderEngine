@@ -1,8 +1,8 @@
-﻿#include "Engine/common/helper.h"
-#ifdef WIN32
-#include "Engine/common/Exception.h"
-#include "Engine/common/PC/WFunc.h"
+﻿#ifdef WIN32
 #include "Engine/render/PC/D3dUtil.h"
+#include "Engine/common/Exception.h"
+#include "Engine/common/helper.h"
+#include "Engine/render/Blob.h"
 
 DXGI_FORMAT GetParaInfoFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& paramDesc) {
     switch (paramDesc.ComponentType)
@@ -42,7 +42,7 @@ DXGI_FORMAT GetParaInfoFromSignature(const D3D12_SIGNATURE_PARAMETER_DESC& param
     return DXGI_FORMAT_UNKNOWN;
 }
 
-D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc()
+D3D12_GRAPHICS_PIPELINE_STATE_DESC DefaultPipelineStateDesc()
 {
     D3D12_GRAPHICS_PIPELINE_STATE_DESC psoDesc{};
     psoDesc.RasterizerState = CD3DX12_RASTERIZER_DESC(D3D12_DEFAULT);
@@ -59,7 +59,7 @@ D3D12_GRAPHICS_PIPELINE_STATE_DESC defaultPipelineStateDesc()
     return psoDesc;
 }
 
-uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::string& name)
+uint64_t GetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::string& name)
 {
     D3D12_SHADER_BUFFER_DESC bufferDesc{};
     auto* pBuffer = pReflector->GetConstantBufferByName(name.c_str());
@@ -67,12 +67,12 @@ uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::
     return bufferDesc.Size;
 }
 
-uint64_t gGetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::wstring& name)
+uint64_t GetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::wstring& name)
 {
-    return gGetConstantsBufferSize(pReflector, ::Utf8ToAscii(name));
+    return GetConstantsBufferSize(pReflector, ::Utf8ToAscii(name));
 }
 
-bool gImplicitTransit(const uint32_t stateBefore, uint32_t& stateAfter,
+bool ImplicitTransition(const uint32_t stateBefore, uint32_t& stateAfter,
                       bool isBufferOrSimultaneous)
 {
     constexpr uint32_t READ_ONLY_MASK = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER |
@@ -98,14 +98,30 @@ bool gImplicitTransit(const uint32_t stateBefore, uint32_t& stateAfter,
 #if defined(DEBUG) or defined(_DEBUG)
     ASSERT(((writeStateAfter - 1) & writeStateAfter && writeStateAfter) == 0, TEXT("cant transition to multi-write state"));
 #endif
-    if (((stateBefore | stateAfter) & DEPTH_RW) ||                          // depth read or write states cant implicitly transition in or out
+    if (stateBefore != stateAfter && 
+        (((stateBefore | stateAfter) & DEPTH_RW) ||                          // depth read or write states cant implicitly transition in or out
 		(stateBefore && (writeStateAfter ^ writeStateBefore)) ||            // for any transition from a promoted state to another state that has different write state, a explicit transition is needed.
-		(!isBufferOrSimultaneous && (stateAfter & ~SHADER_COPY))) {         // if not buffer or simultaneous, cant transition to states except shader rw and copy src/dst
+		(!isBufferOrSimultaneous && (stateAfter & ~SHADER_COPY)))) {         // if not buffer or simultaneous, cant transition to states except shader rw and copy src/dst
         return false;
     }
 
     stateAfter |= stateBefore;
     return true;
 
+}
+
+UComPtr<ID3DBlob> D3D12Compile(const Blob& blob, const char* entry, const char* pTarget, const char* file)
+{
+    ID3DBlob* bin;
+    ID3DBlob* error;
+    if (FAILED(D3DCompile(blob.Binary(), blob.Size(), file, nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE, entry, pTarget,
+        D3DCOMPILE_PACK_MATRIX_COLUMN_MAJOR, 0, &bin, &error)))
+    {
+        OutputDebugStringA(static_cast<char*>(error->GetBufferPointer()));
+        error->Release();
+        return {};
+    }
+    return { bin };
 }
 #endif

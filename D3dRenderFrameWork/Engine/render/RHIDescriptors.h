@@ -1,7 +1,5 @@
 #pragma once
 #include "Engine/pch.h"
-#include "Engine/common/helper.h"
-class RHIShader;
 
 enum class Format : uint8_t
 {
@@ -33,15 +31,24 @@ enum class Format : uint8_t
     R32_TYPELESS,
     R32G32_TYPELESS,
     R32G32B32A32_TYPELESS,
+    R32_UINT,
+    R32G32_UINT,
+    R32G32B32_UINT,
+    R32G32B32A32_UINT,
+    R32_SINT,
+    R32G32_SINT,
+    R32G32B32_SINT,
+    R32G32B32A32_SINT,
     R32_FLOAT,
     R32G32_FLOAT,
+    R32G32B32_FLOAT,
     R32G32B32A32_FLOAT,
     D24_UNORM_S8_UINT,
     
     UNKNOWN,
 };
 
-enum class ResourceUsage : uint8_t
+enum class ResourceType : uint8_t
 {
     DYNAMIC,
     STATIC,
@@ -52,10 +59,13 @@ enum class ResourceUsage : uint8_t
 
 enum class TextureDimension : uint8_t
 {
+    BUFFER,
     TEXTURE1D,
+    TEXTURE1D_ARRAY,
     TEXTURE2D,
-    TEXTURE_ARRAY,
+    TEXTURE2D_ARRAY,
     TEXTURE3D,
+    TEXTURE_CUBE,
 };
 
 enum class FrameBufferType : uint8_t
@@ -92,7 +102,7 @@ enum class ShaderPropType : uint8_t
     SAMPLER = D3D_SIT_SAMPLER,
 };
 
-enum class ShaderType : uint8_t
+enum ShaderType : uint8_t
 {
     NONE = 0,
     VERTEX = 0b00001,
@@ -102,40 +112,118 @@ enum class ShaderType : uint8_t
     PIXEL = 0b10000
 };
 
+enum UpdateType : uint8_t
+{
+    PER_FRAME,
+    PER_PASS,
+    PER_DRAW
+};
+
+enum class CommandListType : uint8_t
+{
+    GRAPHIC = 0,
+    COPY = 1,
+    COMPUTE
+};
+
+struct ShaderProp
+{
+    uint8_t mRegister;
+    ShaderPropType mType;
+    ShaderType mVisibility;
+    union
+    {
+		uint64_t mCBufferSize;
+		TextureDimension mTextureDimension;
+    } mInfo;
+    std::string mName;
+
+    bool operator==(const ShaderProp& rhs) const noexcept
+    {
+        return mRegister == rhs.mRegister && mType == rhs.mType;
+    }
+};
+
+template <>
+struct std::hash<ShaderProp>
+{
+    size_t operator()(const ShaderProp& key) const noexcept
+    {
+        return std::hash<UINT16>()(static_cast<uint16_t>(key.mType) << 8 | key.mRegister);
+    }
+};
+
+struct ShaderInput
+{
+    Format mFormat;
+    std::string mSemanticName;
+    uint32_t mSemanticIndex;
+    uint32_t mInputSlot;
+};
+
+struct RHISwapChainDesc
+{
+    uint32_t mTargetFramesPerSec;
+    uint32_t mWidth;
+    uint32_t mHeight;
+    uint8_t mMSAA;
+    uint8_t mNumBackBuffers;
+    Format mFormat;
+    bool mIsFullScreen;
+};
+
+struct RHIShaderMeta
+{
+    std::string mName;
+    std::vector<ShaderInput> mInputElements;
+    std::unordered_set<ShaderProp> mProperties;
+};
+
+struct RegisterLayout
+{
+    uint8_t mNumConstantsPerMaterial;
+    uint8_t mNumGlobalTextures;
+    uint8_t mMaxMaterialTextures;
+};
+
 struct RHIBufferDesc final
 {
-    RHIBufferDesc() : mSize(0), mResourceType(ResourceUsage::NONE) { }
-    RHIBufferDesc(uint64_t size, ResourceUsage resourceType) : mSize(size), mResourceType(resourceType) { }
+    RHIBufferDesc() : mSize(0), mResourceType(ResourceType::NONE) { }
+    RHIBufferDesc(uint64_t size, ResourceType resourceType) : mSize(size), mResourceType(resourceType) { }
     
     uint64_t mSize;
-    ResourceUsage mResourceType;
+    ResourceType mResourceType;
 };
 
 struct RHITextureDesc final
 {
-    RHITextureDesc() : mFormat(Format::UNKNOWN), mDimension(TextureDimension::TEXTURE2D), mWidth(0), mHeight(0), mDepth(0), mMipLevels(0),
-                       mSampleCount(1), mSampleQuality(0)
-    {
-    }
+    RHITextureDesc() : mWidth(0), mHeight(0), mDepth(0), mFormat(Format::UNKNOWN), mDimension(TextureDimension::TEXTURE2D), mMipLevels(0),
+                       mSampleCount(1), mSampleQuality(0) { }
     RHITextureDesc(Format format, TextureDimension dimension, uint32_t width, uint32_t height, uint32_t depth, uint8_t mipLevels,
                    uint8_t sampleCount, uint8_t sampleQuality) :
-        mFormat(format), mDimension(dimension), mWidth(width), mHeight(height), mDepth(depth), mMipLevels(mipLevels),
-        mSampleCount(sampleCount), mSampleQuality(sampleQuality)
-    {
-    };
+        mWidth(width), mHeight(height), mDepth(depth), mFormat(format), mDimension(dimension), mMipLevels(mipLevels),
+        mSampleCount(sampleCount), mSampleQuality(sampleQuality) { }
 
-    Format mFormat;
-    TextureDimension mDimension;
+    bool operator==(const RHITextureDesc& other) const noexcept
+    {
+        return memcmp(this, &other, sizeof(RHITextureDesc));
+    }
+
     uint32_t mWidth;
     uint32_t mHeight;
     uint32_t mDepth;
+    Format mFormat;
+    TextureDimension mDimension;
     uint8_t mMipLevels;
     uint8_t mSampleCount;
     uint8_t mSampleQuality;
+private:
+	uint8_t mPadding[3]{};
 };
 
 struct Viewport
 {
+    Viewport() = default;
     Viewport(float width, float height, float minDepth, float maxDepth)
         : mTop(0.0f), mLeft(0.0f), mWidth(width), mHeight(height),
           mMinDepth(minDepth), mMaxDepth(maxDepth) {}
@@ -149,66 +237,93 @@ struct Viewport
 
 struct Rect
 {
-    Rect(LONG left, LONG top, LONG right, LONG bottom)
+    Rect() = default;
+    Rect(int32_t left, int32_t top, int32_t right, int32_t bottom)
         : mLeft(left), mTop(top), mRight(right), mBottom(bottom) {}
-    LONG mLeft;
-    LONG mTop;
-    LONG mRight;
-    LONG mBottom;
+    int32_t mLeft;
+    int32_t mTop;
+    int32_t mRight;
+    int32_t mBottom;
+};
+
+union Float4
+{
+    struct
+    {
+        float r, g, b, a;
+    };
+
+    struct
+    {
+        float x, y, z, w;
+    };
+
+    struct
+    {
+        float u, v;
+    };
 };
 
 struct TextureCopyLocation
 {
     uint32_t mMipmap;
     uint32_t mArrayIndex;
+    uint32_t mNumMipmapsOrArrayElems;
     uint32_t mPosX;
     uint32_t mPosY;
     uint32_t mPosZ;
-    uint32_t mWidth;
-    uint32_t mHeight;
-    uint32_t mDepth;
 
-    static TextureCopyLocation BufferLocation(uint64_t src, uint64_t size)
+    static TextureCopyLocation BufferLocation(uint64_t src)
     {
         TextureCopyLocation copy{};
         copy.mPosX = src;
-        copy.mWidth = size;
         return copy;
     }
 
-    static TextureCopyLocation Texture2DLocation(uint32_t mipmap, uint32_t posX, uint32_t posY, uint32_t width, uint32_t height)
+    static TextureCopyLocation Texture2DLocation(uint32_t baseMipmap, uint32_t posX, uint32_t posY)
     {
         TextureCopyLocation copy{};
-        copy.mMipmap = mipmap;
+        copy.mMipmap = baseMipmap;
         copy.mPosX = posX;
         copy.mPosY = posY;
-        copy.mWidth = width;
-        copy.mHeight = height;
         return copy;
     }
 
-    static TextureCopyLocation TextureArrayLocation(uint32_t mipmap, uint32_t arrayIndex, uint32_t posX, uint32_t posY, uint32_t width, uint32_t height)
+    static TextureCopyLocation Texture2DLocation(uint32_t baseMipmap, uint32_t numMipmaps)
+    {
+        TextureCopyLocation copy{};
+        copy.mMipmap = baseMipmap;
+        copy.mNumMipmapsOrArrayElems = numMipmaps;
+        return copy;
+    }
+
+    static TextureCopyLocation TextureArrayLocation(uint32_t mipmap, uint32_t arrayIndex, uint32_t posX, uint32_t posY)
     {
         TextureCopyLocation copy{};
         copy.mMipmap = mipmap;
         copy.mArrayIndex = arrayIndex;
+		copy.mNumMipmapsOrArrayElems = 1;
         copy.mPosX = posX;
         copy.mPosY = posY;
-        copy.mWidth = width;
-        copy.mHeight = height;
         return copy;
     }
 
-    static TextureCopyLocation Texture3DLocation(uint32_t mipmap, uint32_t posX, uint32_t posY, uint32_t posZ, uint32_t width, uint32_t height, uint32_t depth)
+    static TextureCopyLocation TextureArrayLocation(uint32_t mipmap, uint32_t baseArrayIndex, uint32_t numElems)
+    {
+        TextureCopyLocation copy{};
+        copy.mMipmap = mipmap;
+        copy.mArrayIndex = baseArrayIndex;
+        copy.mNumMipmapsOrArrayElems = numElems;
+        return copy;
+    }
+
+    static TextureCopyLocation Texture3DLocation(uint32_t mipmap, uint32_t posX, uint32_t posY, uint32_t posZ)
     {
         TextureCopyLocation copy{};
         copy.mMipmap = mipmap;
         copy.mPosX = posX;
         copy.mPosY = posY;
         copy.mPosZ = posZ;
-        copy.mWidth = width;
-        copy.mHeight = height;
-        copy.mDepth = depth;
         return copy;
     }
 };
@@ -224,6 +339,7 @@ enum class BlendOperation : uint8_t
 
 enum class ColorMask : uint8_t
 {
+    NONE	= 0,
     RED	= 1,
     GREEN = 2,
     BLUE = 4,
@@ -326,10 +442,10 @@ enum class DepthBiasSet : uint8_t
     TERRAIN
 };
 
-enum class BlendType : uint8_t
+enum class BlendType : bool
 {
-    LOGIC = 0,
-    COLOR = 1,
+    LOGIC = false,
+    COLOR = true,
 };
 
 enum class PrimitiveType : uint8_t
@@ -339,6 +455,15 @@ enum class PrimitiveType : uint8_t
     TRIANGLE_FAN,
 };
 
+enum class ConservativeRasterization : uint8_t
+{
+    CONSERVATIVE_OFF,
+    CONSERVATIVE_1,
+    CONSERVATIVE_2,
+    CONSERVATIVE_3,
+    CONSERVATIVE_4,
+};
+
 struct RasterizerDesc
 {
     DrawMode mDrawMode;
@@ -346,8 +471,9 @@ struct RasterizerDesc
     DepthBiasSet mDepthBias;
     uint8_t mEnableMsaa;
     uint8_t mEnableConservativeMode;
+    bool mFrontCounterClockWise;
 
-    static constexpr RasterizerDesc Default()
+    static RasterizerDesc Default()
     {
         static RasterizerDesc desc = {DrawMode::SOLID, CullMode::BACK, DepthBiasSet::NONE, false, false};
         return desc;
@@ -368,7 +494,7 @@ struct DepthTestDesc
 
     static DepthTestDesc Default()
     {
-        static DepthTestDesc defaultDepth = {true, CompareFunction::LESS, DepthOperation::WRITE, 0};
+        static DepthTestDesc defaultDepth = {true, CompareFunction::GREATER, DepthOperation::WRITE, 0};
         return defaultDepth;
     }
 
@@ -403,6 +529,7 @@ struct StencilTestDesc
 
 struct BlendDesc
 {
+    bool mEnableBlend;
     BlendType mBlendType;
     BlendMode mSrcBlend;
     BlendMode mDestBlend;
@@ -413,188 +540,24 @@ struct BlendDesc
     LogicOperation mLogicOp;
     ColorMask mRenderTargetWriteMask;
 
-    static BlendDesc Logic(LogicOperation logicOp, ColorMask colorMask)
+    static BlendDesc Disabled()
     {
-        static BlendDesc desc = {BlendType::LOGIC, BlendMode::ZERO, BlendMode::ONE, BlendOperation::ADD, BlendMode::ZERO, BlendMode::ONE, BlendOperation::ADD, logicOp, colorMask};
+        static BlendDesc desc = { false };
         return desc;
     }
 
-    static BlendDesc Color(BlendMode srcBlend = BlendMode::ONE, BlendMode destBlend = BlendMode::ZERO, BlendOperation blendOp = BlendOperation::ADD,
+    static BlendDesc Logic(LogicOperation logicOp, ColorMask colorMask)
+    {
+        static BlendDesc desc = {true, BlendType::LOGIC, BlendMode::ZERO, BlendMode::ONE, BlendOperation::ADD, BlendMode::ZERO, BlendMode::ONE, BlendOperation::ADD, logicOp, colorMask};
+        return desc;
+    }
+
+    static BlendDesc Color(BlendMode srcBlend = BlendMode::SRC_ALPHA, BlendMode destBlend = BlendMode::INV_SRC_ALPHA, BlendOperation blendOp = BlendOperation::ADD,
                                 BlendMode srcBlendAlpha = BlendMode::ONE, BlendMode destBlendAlpha = BlendMode::ZERO, BlendOperation blendOpAlpha = BlendOperation::ADD,
                                 ColorMask renderTargetWriteMask = ColorMask::ALL)
     {
-        static BlendDesc desc = { BlendType::COLOR, srcBlend, destBlend, blendOp, srcBlendAlpha, destBlendAlpha, blendOpAlpha, LogicOperation::CLEAR, renderTargetWriteMask};
+        static BlendDesc desc = { true, BlendType::COLOR, srcBlend, destBlend, blendOp, srcBlendAlpha, destBlendAlpha, blendOpAlpha, LogicOperation::CLEAR, renderTargetWriteMask};
         return desc;
-    }
-};
-
-struct PSOInitializer
-{
-    void SetDepthTest(const DepthTestDesc& depthTest)
-    {
-        mOptions.mEnableDepthTest = depthTest.mEnableDepthTest;
-        if (mOptions.mEnableDepthTest)
-        {
-            mDepth.mCompareFunction = depthTest.mCompareFunction;
-            mDepth.mDepthOperation = depthTest.mDepthOperation;
-            mDepth.mDepthWriteMask = depthTest.mDepthWriteMask;
-        }
-        else
-        {
-            mDepth.mInit = 0;
-        }
-    }
-
-    void SetStencilTest(const StencilTestDesc& stencilTest)
-    {
-        mOptions.mEnableStencilTest = stencilTest.mEnableStencilTest;
-        if (mOptions.mEnableStencilTest)
-        {
-            mStencil.mStencilReadMask = stencilTest.mStencilReadMask;
-            mStencil.mStencilWriteMask = stencilTest.mStencilWriteMask; 
-            mStencil.mBackStencilFunc = stencilTest.mBackStencilFunc;
-            mStencil.mBackStencilFailOp = stencilTest.mBackStencilFailOp;
-            mStencil.mBackStencilDepthFailOp = stencilTest.mBackStencilDepthFailOp;
-            mStencil.mBackStencilPassOp = stencilTest.mBackStencilPassOp;
-            mStencil.mFrontStencilFunc = stencilTest.mFrontStencilFunc;
-            mStencil.mFrontStencilFailOp = stencilTest.mFrontStencilFailOp;
-            mStencil.mFrontStencilDepthFailOp = stencilTest.mFrontStencilDepthFailOp;
-            mStencil.mFrontStencilPassOp = stencilTest.mFrontStencilPassOp;
-        }
-        else
-        {
-            mStencil.mInit[0] = 0;
-            mStencil.mInit[1] = 0;
-        }
-    }
-
-    void SetRasterizer(const RasterizerDesc& rasterizer)
-    {
-        mRasterizer.mCullMode = rasterizer.mCullMode;
-        mRasterizer.mDrawMode = rasterizer.mDrawMode;
-        mRasterizer.mDepthBias = rasterizer.mDepthBias;
-    }
-
-    void SetBlend(const BlendDesc& blend)
-    {
-        mBlendType = blend.mBlendType;
-        if (blend.mBlendType == BlendType::LOGIC)
-        {
-            mBlend.mInit = 0;
-            mBlend.mLogicOp = blend.mLogicOp;
-        }
-        else
-        {
-            mBlend.mSrcBlend = blend.mSrcBlendAlpha;
-            mBlend.mDestBlend = blend.mDestBlendAlpha;
-            mBlend.mBlendOp = blend.mBlendOp;
-            mBlend.mSrcBlendAlpha = blend.mSrcBlendAlpha;
-            mBlend.mDestBlendAlpha = blend.mDestBlendAlpha;
-            mBlend.mBlendOpAlpha = blend.mBlendOpAlpha;
-        }
-    }
-
-    bool operator==(const PSOInitializer& other) const
-    {
-        bool sameBlend = mBlendType == other.mBlendType && mRenderTargetWriteMask == other.mRenderTargetWriteMask && (mBlendType == BlendType::LOGIC ? mBlend.mLogicOp == other.mBlend.mLogicOp : mBlend.mInit == other.mBlend.mInit);
-        bool sameOptions = mOptions.mInit == other.mOptions.mInit;
-        if (!sameBlend || !sameOptions) return false;
-        bool sameDepth = mOptions.mEnableDepthTest ?  mDepth.mInit == other.mDepth.mInit : true;
-        return sameDepth && (mOptions.mEnableStencilTest ?  mStencil.mInit[0] == other.mStencil.mInit[0] && mStencil.mInit[1] == other.mStencil.mInit[1] : true);
-    }
-
-    uint64_t Hash() const
-    {
-        uint64_t hash = static_cast<uint8_t>(mBlendType) | (static_cast<uint8_t>(mRenderTargetWriteMask) << 8) | (mOptions.mInit << 16) | (mRasterizer.mInit << 32);
-        hash = MurmurHash(hash, mBlend.mInit);
-        hash = MurmurHash(hash, mDepth.mInit);
-        hash = MurmurHash(hash, mStencil.mInit[0]);
-        hash = MurmurHash(hash, mStencil.mInit[1]);
-        hash = MurmurHash(hash, reinterpret_cast<uint64_t>(mShader));
-        return hash;
-    }
-
-    union
-    {
-        struct
-        {
-            bool mEnableDepthTest;
-            bool mEnableStencilTest;
-            bool mEnableMsaa;
-            bool mEnableConservativeMode;
-        };
-        uint8_t mInit{};
-    } mOptions;
-    
-    BlendType mBlendType;
-    ColorMask mRenderTargetWriteMask;
-    union
-    {
-        struct
-        {
-            BlendMode mSrcBlend;
-            BlendMode mDestBlend;
-            BlendOperation mBlendOp;
-            BlendMode mSrcBlendAlpha;
-            BlendMode mDestBlendAlpha;
-            BlendOperation mBlendOpAlpha;
-            uint8_t mPadding[2];
-        };
-        uint64_t mInit{};
-        LogicOperation mLogicOp;
-    } mBlend;
-
-    union StencilTest
-    {
-        struct
-        {
-            uint8_t mStencilReadMask;
-            uint8_t mStencilWriteMask;
-            StencilOperation mFrontStencilFailOp;
-            StencilOperation mFrontStencilDepthFailOp;
-            StencilOperation mFrontStencilPassOp;
-            CompareFunction mFrontStencilFunc;
-            StencilOperation mBackStencilFailOp;
-            StencilOperation mBackStencilDepthFailOp;
-            StencilOperation mBackStencilPassOp;
-            CompareFunction mBackStencilFunc;
-            uint8_t mPadding[6];
-        };
-        uint64_t mInit[2]{};
-    } mStencil;
-
-    union DepthTest
-    {
-        struct
-        {
-            CompareFunction mCompareFunction;
-            DepthOperation mDepthOperation;
-            uint8_t mDepthWriteMask;
-            uint8_t mPadding[1];
-        };
-        uint32_t mInit{};
-    } mDepth;
-
-    union Rasterizer
-    {
-        struct
-        {
-            DrawMode mDrawMode;
-            CullMode mCullMode;
-            DepthBiasSet mDepthBias;
-        };
-        uint32_t mInit{};
-    } mRasterizer;
-
-    RHIShader* mShader;
-};
-
-template <>
-struct std::hash<PSOInitializer>
-{
-    size_t operator()(const PSOInitializer& key) const noexcept
-    {
-        return key.Hash();
     }
 };
 
@@ -606,8 +569,12 @@ struct GraphicPipelineStateDesc
     PrimitiveType mPrimitiveType;
     DepthTestDesc mDepthTestDesc;
     StencilTestDesc mStencilTestDesc;
-    RHIShader* mShader;
     BlendDesc mBlendDesc;
+    void* mVSShader;
+    void* mHSShader;
+    void* mDSShader;
+    void* mGSShader;
+    void* mPSShader;
 
     static GraphicPipelineStateDesc Default()
     {
@@ -616,8 +583,12 @@ struct GraphicPipelineStateDesc
             PrimitiveType::TRIANGLE_LIST,
             DepthTestDesc::Default(),
             StencilTestDesc::Default(),
-            nullptr,
             BlendDesc::Color(),
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr,
+            nullptr
             };
         return desc;
     } 

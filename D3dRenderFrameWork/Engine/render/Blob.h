@@ -3,11 +3,11 @@
 class Blob
 {
 public:
-    void reserve(uint64_t size);
-    void copyFrom(const void* pData, uint64_t size) const;
-    const byte* binary() const;
-    uint64_t size() const;
-    void release();
+    void Reserve(uint64_t size);
+    void CopyFrom(const void* pData, uint64_t size) const;
+    const byte* Binary() const;
+    uint64_t Size() const;
+    void Release();
     Blob();
     Blob(const void* binary, size_t size);
     Blob(size_t size);
@@ -23,9 +23,9 @@ private:
     uint64_t mSize;
 };
 
-inline void Blob::reserve(uint64_t size)
+inline void Blob::Reserve(uint64_t size)
 {
-    if (size > mSize)
+    if (size && size > mSize)
     {
         byte* newBinary = new byte[size];
         memcpy(newBinary, mBinary, mSize);
@@ -35,22 +35,22 @@ inline void Blob::reserve(uint64_t size)
     }
 }
 #undef min
-inline void Blob::copyFrom(const void* pData, uint64_t size) const
+inline void Blob::CopyFrom(const void* pData, uint64_t size) const
 {
     memcpy(mBinary, pData, std::min(mSize, size));
 }
 
-inline const byte* Blob::binary() const
+inline const byte* Blob::Binary() const
 {
     return mBinary;
 }
 
-inline uint64_t Blob::size() const
+inline uint64_t Blob::Size() const
 {
     return mSize;
 }
 
-inline void Blob::release()
+inline void Blob::Release()
 {
     mSize = 0;
     delete[] mBinary;
@@ -60,7 +60,7 @@ inline void Blob::release()
 inline Blob::Blob(): mBinary(nullptr), mSize(0)
 {}
 
-inline Blob::Blob(const void* binary, size_t size): mBinary(new byte[size]), mSize(size)
+inline Blob::Blob(const void* binary, size_t size): mBinary(size ? new byte[size] : nullptr), mSize(size)
 {
     memcpy(mBinary, binary, size);
 }
@@ -88,5 +88,5 @@ inline Blob& Blob::operator=(Blob&& other) noexcept
 
 inline Blob::~Blob()
 {
-    release();
+    Release();
 }

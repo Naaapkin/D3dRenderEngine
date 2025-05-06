@@ -1,24 +1,60 @@
 #pragma once
-#include "RenderResource.h"
-#ifdef WIN32
+#include "SubMesh.h"
 #include "Engine/pch.h"
 #include "Engine/common/Exception.h"
 
-struct SubMesh
-{
-    uint32_t mIndexNum;
-    uint32_t mStartIndex;
-    int32_t mBaseVertex;
-    // boundingBox
-};
-
 struct MeshData
 {
-	ResourceHandle mVertexBuffer;
-	ResourceHandle mIndexBuffer;
+	MeshData() = default;
+
+	MeshData(VertexBufferRef vertexBuffer, VertexBufferRef indexBuffer, uint32_t vertexCount,
+		uint32_t indexCount, const SubMesh* subMeshes, uint8_t subMeshCount)
+		: mVertexBuffer(vertexBuffer),
+		  mIndexBuffer(indexBuffer),
+		  mVertexCount(vertexCount),
+		  mIndexCount(indexCount),
+		  mSubMeshCount(subMeshCount)
+	{
+		if (subMeshes && subMeshCount)
+		{
+			mSubMeshes.reset(new SubMesh[subMeshCount]);
+			memcpy(mSubMeshes.get(), subMeshes, subMeshCount);
+		}
+	}
+
+	MeshData(const MeshData& other)
+	{
+		mVertexBuffer = other.mVertexBuffer;
+		mIndexBuffer = other.mIndexBuffer;
+		mVertexCount = other.mVertexCount;
+		mIndexCount = other.mIndexCount;
+		mSubMeshes = std::make_unique<SubMesh[]>(other.mSubMeshCount);
+		mSubMeshCount = other.mSubMeshCount;
+		memcpy(mSubMeshes.get(), other.mSubMeshes.get(), mSubMeshCount);
+	}
+
+	MeshData& operator=(const MeshData& other)
+	{
+		if (this != &other)
+		{
+			mVertexBuffer = other.mVertexBuffer;
+			mIndexBuffer = other.mIndexBuffer;
+			mVertexCount = other.mVertexCount;
+			mIndexCount = other.mIndexCount;
+			mSubMeshes = std::make_unique<SubMesh[]>(other.mSubMeshCount);
+			mSubMeshCount = other.mSubMeshCount;
+			memcpy(mSubMeshes.get(), other.mSubMeshes.get(), mSubMeshCount);
+		}
+		return *this;
+	}
+	~MeshData() = default;
+
+	VertexBufferRef mVertexBuffer;
+	VertexBufferRef mIndexBuffer;
 	uint32_t mVertexCount;
 	uint32_t mIndexCount;
-	std::vector<SubMesh> mSubMeshes;
+	std::unique_ptr<SubMesh[]> mSubMeshes;
+	uint8_t mSubMeshCount;
 };
 
 struct Mesh
@@ -179,16 +215,16 @@ inline void Mesh::setSubMeshes(const std::vector<SubMesh>& subMeshes)
 	mSubMeshes = subMeshes;
 }
 
-// TODO: filter the vertex data according to shader 
+// TODO: filter the vertex data according to mShader 
 inline std::vector<float> Mesh::getFilteredVertexBuffer() const
 {
 	std::vector<float> vertexBuffer{};
-	// vertexBuffer.resize(mVertex.size() * calcVertexSize());
-	// we use fixed vertex data temporally, so the vertex size is fixed.
+	// vertexBuffer.resize(mVertex.Size() * calcVertexSize());
+	// we use fixed vertex data temporally, so the vertex Size is fixed.
 	auto a = mVertexBuffer.size();
-	vertexBuffer.resize(mVertex.size() * sizeof(float[3 + 3 + 2]));
+	vertexBuffer.resize(mVertex.size() * 8);
 	
-	// we should filter the vertex props by shader input.
+	// we should filter the vertex props by mShader input.
 	// now we just let it be the combination of POSITION & NORMAL & TEXCOORD0
 	// ----------------------Temp Filter----------------------------
 	ASSERT(!mVertex.empty(), TEXT("vertex data missed"))
@@ -480,4 +516,3 @@ inline Mesh MeshPrototype::CreateCubeMesh()
 #pragma endregion cubeMeshInitialize
 	return cubeMeshTemp;
 }
-#endif

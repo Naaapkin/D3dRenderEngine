@@ -2206,8 +2206,8 @@ EXTERN_C const IID IID_IDXGIFactory;
             /* [annotation][out] */ 
             _Out_  HWND *pWindowHandle);
         
-        DECLSPEC_XFGVIRT(IDXGIFactory, CreateSwapChain)
-        HRESULT ( STDMETHODCALLTYPE *CreateSwapChain )( 
+        DECLSPEC_XFGVIRT(IDXGIFactory, CreateSwapChainForHwnd)
+        HRESULT ( STDMETHODCALLTYPE *CreateSwapChainForHwnd )( 
             IDXGIFactory * This,
             /* [annotation][in] */ 
             _In_  IUnknown *pDevice,
@@ -2269,7 +2269,7 @@ EXTERN_C const IID IID_IDXGIFactory;
     ( (This)->lpVtbl -> GetWindowAssociation(This,pWindowHandle) ) 
 
 #define IDXGIFactory_CreateSwapChain(This,pDevice,pDesc,ppSwapChain)	\
-    ( (This)->lpVtbl -> CreateSwapChain(This,pDevice,pDesc,ppSwapChain) ) 
+    ( (This)->lpVtbl -> CreateSwapChainForHwnd(This,pDevice,pDesc,ppSwapChain) ) 
 
 #define IDXGIFactory_CreateSoftwareAdapter(This,Module,ppAdapter)	\
     ( (This)->lpVtbl -> CreateSoftwareAdapter(This,Module,ppAdapter) ) 
@@ -2639,8 +2639,8 @@ EXTERN_C const IID IID_IDXGIFactory1;
             /* [annotation][out] */ 
             _Out_  HWND *pWindowHandle);
         
-        DECLSPEC_XFGVIRT(IDXGIFactory, CreateSwapChain)
-        HRESULT ( STDMETHODCALLTYPE *CreateSwapChain )( 
+        DECLSPEC_XFGVIRT(IDXGIFactory, CreateSwapChainForHwnd)
+        HRESULT ( STDMETHODCALLTYPE *CreateSwapChainForHwnd )( 
             IDXGIFactory1 * This,
             /* [annotation][in] */ 
             _In_  IUnknown *pDevice,
@@ -2713,7 +2713,7 @@ EXTERN_C const IID IID_IDXGIFactory1;
     ( (This)->lpVtbl -> GetWindowAssociation(This,pWindowHandle) ) 
 
 #define IDXGIFactory1_CreateSwapChain(This,pDevice,pDesc,ppSwapChain)	\
-    ( (This)->lpVtbl -> CreateSwapChain(This,pDevice,pDesc,ppSwapChain) ) 
+    ( (This)->lpVtbl -> CreateSwapChainForHwnd(This,pDevice,pDesc,ppSwapChain) ) 
 
 #define IDXGIFactory1_CreateSoftwareAdapter(This,Module,ppAdapter)	\
     ( (This)->lpVtbl -> CreateSoftwareAdapter(This,Module,ppAdapter) ) 

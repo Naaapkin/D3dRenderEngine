@@ -15,145 +15,218 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="D3dRenderFrameWork.cpp">
+    <ClCompile Include="Engine\common\PC\WFunc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="common\PC\WException.cpp">
+    <ClCompile Include="Engine\game\EventDispatcher.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="common\PC\WFunc.cpp">
+    <ClCompile Include="Engine\game\PC\EventDispatcherWin.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="game\EventDispatcher.cpp">
+    <ClCompile Include="Engine\math\PC\Vector2.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="game\PC\EventDispatcherWin.cpp">
+    <ClCompile Include="Engine\math\PC\Vector3.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\IRenderer.cpp">
+    <ClCompile Include="Engine\render\PC\Private\D3D12CommandContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\Mesh.cpp">
+    <ClCompile Include="Engine\render\PC\Private\D3D12GraphicsContext.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\D3dCommandList.cpp">
+    <ClCompile Include="Engine\render\PC\Private\ResourceStateTracker.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\D3dGraphicContext.cpp">
+    <ClCompile Include="Engine\render\PC\D3D12RHI.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\D3dRenderer.cpp">
+    <ClCompile Include="Engine\render\PC\D3dUtil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\D3dUtil.cpp">
+    <ClCompile Include="Engine\render\PC\Resource\D3D12Resources.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\DescriptorHeap.cpp">
+    <ClCompile Include="Engine\Window\Frame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\Frame.cpp">
+    <ClCompile Include="Engine\Window\WFrame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\FrameResource.cpp">
+    <ClCompile Include="GamePlay\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="render\PC\Data.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\RenderResource\DefaultBuffer.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\RenderResource\D3dResourceManager.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\RenderResource\UploadHeap.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\Shader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\WFrame.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\D3dCommandQueue.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="render\PC\RenderResource\D3dResource.cpp">
+    <ClCompile Include="Engine\render\Renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="common\helper.h">
+    <ClInclude Include="Engine\common\Format.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="common\PC\WException.h">
+    <ClInclude Include="Engine\common\helper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="common\PC\WFunc.h">
+    <ClInclude Include="Engine\common\PC\WFunc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="d3dx12.h">
+    <ClInclude Include="Engine\common\Exception.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="game\EventDispatcher.h">
+    <ClInclude Include="Engine\game\EventDispatcher.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="game\PC\EventDispatcherWin.h">
+    <ClInclude Include="Engine\game\PC\EventDispatcherWin.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pch.h">
+    <ClInclude Include="Engine\math\math.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\IRenderer.h">
+    <ClInclude Include="Engine\math\PC\Vector2.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\Mesh.h">
+    <ClInclude Include="Engine\math\PC\Vector3.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\D3dCommandList.h">
+    <ClInclude Include="Engine\memory\BlockAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\D3dGraphicContext.h">
+    <ClInclude Include="Engine\memory\DynamicBlockAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\D3dRenderer.h">
+    <ClInclude Include="Engine\memory\BuddyAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\D3dUtil.h">
+    <ClInclude Include="Engine\memory\DynamicLinearAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\DescriptorHeap.h">
+    <ClInclude Include="Engine\memory\LinearAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\dxgi.h">
+    <ClInclude Include="Engine\memory\RingAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\Frame.h">
+    <ClInclude Include="Engine\pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\FrameResource.h">
+    <ClInclude Include="Engine\render\Blob.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\RenderResource\DefaultBuffer.h">
+    <ClInclude Include="Engine\render\DynamicRHI.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\RenderResource\D3dResourceManager.h">
+    <ClInclude Include="Engine\render\Material.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\RenderResource\UploadHeap.h">
+    <ClInclude Include="Engine\render\MeshData.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\Shader.h">
+    <ClInclude Include="Engine\render\PC\d3dx12.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\WFrame.h">
+    <ClInclude Include="Engine\render\PC\Native\D3D12ConstantBufferAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\D3dCommandQueue.h">
+    <ClInclude Include="Engine\render\PC\Native\D3D12DescriptorHeap.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="render\PC\RenderResource\D3dResource.h">
+    <ClInclude Include="Engine\render\PC\Native\D3D12DescriptorAllocator.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12Device.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12EnumConversions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12Resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Private\D3D12CommandContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Private\D3D12GraphicsContext.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Private\D3D12RenderTarget.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Private\D3D12SwapChain.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Private\ResourceStateTracker.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\D3D12RHI.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\D3dUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\dxgi.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12CommandObjectPool.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12PipelineStateManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Native\D3D12RootSignatureManager.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Resource\D3D12Fence.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\PC\Resource\D3D12Resources.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\Renderer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RenderItem.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RHIConfiguration.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RHIDefination.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RHIDescriptors.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RHIPipelineStateInializer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\Shader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\SubMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Window\Frame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\Window\WFrame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Engine\render\RenderResource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Assets\Configurations\shader.manif" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Assets\Shaders\source\Opaque.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\common\LightingPassConstants.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\common\Samplers.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\common\PBRInput.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\PreDepth.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\InstanceOpaque.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\common\Common.hlsl" />
+    <FxCompile Include="Assets\Shaders\source\UI.hlsl" />
   </ItemGroup>
 </Project>

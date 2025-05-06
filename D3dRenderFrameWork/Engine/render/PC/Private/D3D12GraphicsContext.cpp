@@ -80,7 +80,7 @@ void D3D12GraphicsContext::ClearDepthStencil(const RHIDepthStencil* pDepthStenci
 	float depth, uint32_t stencil, const Rect* clearRects, uint32_t numRects)
 {
     const D3D12DepthStencil* pNativeDepthStencil = static_cast<const D3D12DepthStencil*>(pDepthStencil);
-    D3D12_CLEAR_FLAGS flags = clearDepth ? D3D12_CLEAR_FLAG_DEPTH : static_cast<D3D12_CLEAR_FLAGS>(0) | clearStencil ? D3D12_CLEAR_FLAG_STENCIL : static_cast<D3D12_CLEAR_FLAGS>(0);
+    D3D12_CLEAR_FLAGS flags = (clearDepth ? D3D12_CLEAR_FLAG_DEPTH : static_cast<D3D12_CLEAR_FLAGS>(0)) | (clearStencil ? D3D12_CLEAR_FLAG_STENCIL : static_cast<D3D12_CLEAR_FLAGS>(0));
     mCommandList->ClearDepthStencilView(pNativeDepthStencil->CPUHandle(), flags, depth, stencil, numRects, reinterpret_cast<const RECT*>(clearRects));
 }
 

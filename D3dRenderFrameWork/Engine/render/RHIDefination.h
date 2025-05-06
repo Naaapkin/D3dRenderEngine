@@ -1,274 +1,212 @@
 #pragma once
-#include <iosfwd>
-#include <iosfwd>
-#include <vector>
-#include <vector>
-
-#include "Blob.h"
+#include "RHIDescriptors.h"
 #include "Engine/pch.h"
-#include "Engine/common/Format.h"
+
+struct PipelineInitializer;
 
 class RHIObject
 {
 public:
-    virtual void SetName(const std::string& name) = 0;
-    virtual const std::string& GetName() const = 0;
     RHIObject() = default;
     virtual ~RHIObject() = default;
-
-    DELETE_MOVE_OPERATOR(RHIObject);
-    DELETE_MOVE_CONSTRUCTOR(RHIObject);
-    DEFAULT_COPY_OPERATOR(RHIObject);
-    DEFAULT_COPY_CONSTRUCTOR(RHIObject);
-};
-
-enum class ResourceType : uint8_t
-{
-    DYNAMIC,
-    STATIC,
-    SHADER_RESOURCE,
-    UNORDERED_ACCESS,
-    NONE,
-};
-
-enum class TextureDimension : uint8_t
-{
-    TEXTURE2D,
-    TEXTURE_ARRAY,
-    TEXTURE3D,
-};
-
-enum class FrameBufferType : uint8_t
-{
-    COLOR,
-    DEPTH,
-    STENCIL,
-    DEPTH_STENCIL,
-};
-
-enum class CommandQueueType : uint8_t
-{
-    GRAPHIC,
-    COPY,
-    COMPUTE
-};
-
-struct RHIBufferDesc final
-{
-    RHIBufferDesc() : mSize(0), mStride(sizeof(float)), mResourceType(ResourceType::NONE) { }
-    RHIBufferDesc(uint64_t size, uint64_t stride, ResourceType resourceType) : mSize(size), mStride(stride), mResourceType(resourceType) { }
     
-    uint64_t mSize;
-    uint64_t mStride;
-    ResourceType mResourceType;
+    NON_COPYABLE(RHIObject)
+    DEFAULT_MOVE_CONSTRUCTOR(RHIObject)
+    DEFAULT_MOVE_OPERATOR(RHIObject)
 };
 
-struct RHITextureDesc final
-{
-    RHITextureDesc() : mFormat(Format::UNKNOWN), mDimension(TextureDimension::TEXTURE2D), mWidth(0), mHeight(0), mDepth(0), mMipLevels(0),
-                       mSampleCount(1), mSampleQuality(0)
-    {
-    }
-    RHITextureDesc(Format format, TextureDimension dimension, uint32_t width, uint32_t height, uint32_t depth, uint8_t mipLevels,
-                   uint8_t sampleCount, uint8_t sampleQuality) :
-        mFormat(format), mDimension(dimension), mWidth(width), mHeight(height), mDepth(depth), mMipLevels(mipLevels),
-        mSampleCount(sampleCount), mSampleQuality(sampleQuality)
-    {
-    };
-
-    Format mFormat;
-    TextureDimension mDimension;
-    uint32_t mWidth;
-    uint32_t mHeight;
-    uint32_t mDepth;
-    uint8_t mMipLevels;
-    uint8_t mSampleCount;
-    uint8_t mSampleQuality;
-};
-
-struct Viewport
-{
-    Viewport(float width, float height, float minDepth, float maxDepth)
-        : mTop(0.0f), mLeft(0.0f), mWidth(width), mHeight(height),
-          mMinDepth(minDepth), mMaxDepth(maxDepth) {}
-    float mTop;
-    float mLeft;
-    float mWidth;
-    float mHeight;
-    float mMinDepth;
-    float mMaxDepth;
-};
-
-struct Rect
-{
-    Rect(LONG left, LONG top, LONG right, LONG bottom)
-        : mLeft(left), mTop(top), mRight(right), mBottom(bottom) {}
-    LONG mLeft;
-    LONG mTop;
-    LONG mRight;
-    LONG mBottom;
-};
-
-class RHIResource: public RHIObject
+class RHINativeResource: public RHIObject
 {
 public:
     virtual void Release() = 0;
+    RHINativeResource() = default;
 };
 
-class RHIBuffer : public RHIResource
+class RHINativeBuffer : public RHINativeResource
 {
 public:
-    virtual RHIBufferDesc GetDesc() const = 0;
-    virtual uint64_t GetSize() const = 0;
+    RHIBufferDesc GetDesc() const { return mDesc; };
+    virtual uint32_t BufferSize() const = 0;
+    RHINativeBuffer() = default;
+    RHINativeBuffer(const RHIBufferDesc& desc) : RHINativeResource(), mDesc(desc) { }
+
+protected:
+    RHIBufferDesc mDesc;
 };
 
-class RHITexture : public RHIResource
+class RHINativeTexture : public RHINativeResource
 {
 public:
-    virtual const RHITextureDesc& GetDesc() const = 0;
+    const RHITextureDesc& GetDesc() const { return mDesc; }
+    RHINativeTexture() = default;
+    RHINativeTexture(const RHITextureDesc& desc) : RHINativeResource(), mDesc(desc) { }
+
+protected:
+    RHITextureDesc mDesc;
 };
 
-class RHITexture2D : public RHITexture
+class RHIBufferWrapper
 {
 public:
-    virtual void GetSize(uint32_t& width, uint32_t& height) const = 0;
+    RHINativeBuffer* GetBuffer() const { return mBuffer.get(); }
+    RHIBufferWrapper() = default;
+    RHIBufferWrapper(std::unique_ptr<RHINativeBuffer>&& pBuffer) : mBuffer(std::move(pBuffer)) { }
+
+protected:
+    std::unique_ptr<RHINativeBuffer> mBuffer;
 };
 
-class RHITexture3D : public RHITexture
+class RHITextureWrapper
 {
 public:
-    virtual void GetSize(uint32_t& width, uint32_t& height, uint32_t depth) const = 0;
+    RHINativeTexture* GetTexture() const { return mTexture.get(); }
+    RHITextureWrapper() = default;
+    RHITextureWrapper(std::unique_ptr<RHINativeTexture>&& pTexture) : mTexture(std::move(pTexture)) { }
+
+protected:
+    std::unique_ptr<RHINativeTexture> mTexture;
 };
 
-class RHITextureArray : public RHITexture
-{
-public:
-    virtual void GetSize(uint32_t& width, uint32_t& height, uint32_t arraySize) const = 0;
+#define DERIVE_BUFFER_WRAPPER(className) \
+class className : public RHIObject, public RHIBufferWrapper \
+{ \
+public: \
+	className() = default; \
+	className(std::unique_ptr<RHINativeBuffer> pBuffer) : RHIObject(), RHIBufferWrapper(std::move(pBuffer)) { } \
 };
 
-class RHIFrameBuffer : public RHIObject
+#define DERIVE_TEXTURE_WRAPPER_CONSTRUCTOR(className) \
+class className : public RHIObject, public RHITextureWrapper \
+{ \
+public: \
+	className() = default; \
+	className(std::unique_ptr<RHINativeTexture> pTexture) : RHIObject(), RHITextureWrapper(std::move(pTexture)) { } \
+};
+
+DERIVE_BUFFER_WRAPPER(RHIConstantBuffer);
+DERIVE_BUFFER_WRAPPER(RHIStagingBuffer);
+DERIVE_BUFFER_WRAPPER(RHIVertexBuffer);
+DERIVE_BUFFER_WRAPPER(RHIIndexBuffer);
+
+class RHIRenderTarget : public RHINativeResource
 {
 public:
-    FrameBufferType GetType() const { return mType; }
-    void SetType(FrameBufferType type) { mType = type; }
-    
-    virtual RHITexture2D* GetAttachment() const = 0;
-    RHIFrameBuffer() = default;
-    RHIFrameBuffer(FrameBufferType type) : mType(type) { }
+    RHITextureDesc GetTextureDesc() const { return mDesc; }
+    uint32_t GetWidth() const { return mDesc.mWidth; }
+    uint32_t GetHeight() const { return mDesc.mHeight; }
+    Format GetFormat() const { return mDesc.mFormat; }
+    bool MSAAEnabled() const { return mDesc.mSampleCount > 1; }
+    RHIRenderTarget() = default;
+    RHIRenderTarget(const RHITextureDesc& desc) : RHINativeResource(), mDesc(desc) { }
     
 private:
-    FrameBufferType mType;
+    RHITextureDesc mDesc;
+};
+
+class RHIDepthStencil : public RHINativeResource
+{
+public:
+    RHITextureDesc GetTextureDesc() const { return mDesc; }
+    uint32_t GetWidth() const { return mDesc.mWidth; }
+    uint32_t GetHeight() const { return mDesc.mHeight; }
+    Format GetFormat() const { return mDesc.mFormat; }
+    bool MSAAEnabled() const { return mDesc.mSampleCount > 1; }
+    bool MipmapEnabled() const { return mDesc.mMipLevels > 1; }
+    RHIDepthStencil() = default;
+    RHIDepthStencil(const RHITextureDesc& desc) : RHINativeResource(), mDesc(desc) { }
+    
+private:
+    RHITextureDesc mDesc;
 };
 
 class RHIFence : public RHIObject
 {
 public:
-    virtual void Wait(uint64_t fencePoint) const = 0;
+    virtual uint64_t GetValue() const = 0;
+    virtual void Wait(uint64_t value) const = 0;
+    RHIFence() = default;
 };
 
-class RHICommandList : public RHIObject
+// class RHICommandQueue : public RHIObject
+// {
+// public:
+//     virtual void SetFence(RHIFence* pFence) = 0;
+//     virtual void Signal(uint64_t semaphore) const = 0;
+//     virtual void InsertFence(uint64_t semaphore) const = 0;
+//     virtual const RHIFence* GetFence() const = 0;
+//     virtual uint64_t GetGPUSemaphore() const = 0;
+//     virtual void ExecuteCommands(const std::vector<DynamicLinearAllocator::Handle<RHICommand>>& commands) = 0;
+//     RHICommandQueue() = default;
+//     RHICommandQueue(const std::string& name) : RHIObject(name) { }
+// };
+
+class RHICopyContext : public RHIObject
 {
 public:
-    virtual void Reset() = 0;
-    virtual void Clear() = 0;
-    virtual void Close() = 0;
+    virtual void UpdateBuffer(RHIBufferWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint64_t size, uint64_t dstStart, uint64_t srcStart) = 0;
+    virtual void UpdateTexture(RHINativeTexture* pDst, RHIStagingBuffer* pStagingBuffer, uint8_t mipmap) = 0;
+    virtual void CopyTexture(RHITextureWrapper* pDst, RHITextureWrapper* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth) = 0;
+    virtual void InsertFence(RHIFence* pFence, uint64_t semaphore) = 0;
 };
 
-class RHIGraphicCommandList : public RHICommandList
+class RHIGraphicsContext : public RHIObject
 {
 public:
-    virtual void SetViewPort(const std::vector<__resharper_unknown_type>& viewports)= 0;
-    virtual void SetScissorRect(const std::vector<Rect>& scissorRects)= 0;
-    virtual void CopyResource(RHIResource* dstResource, RHIResource* srcResource) = 0;
-private:
+    virtual void UpdateBuffer(RHIBufferWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint64_t size, uint64_t dstStart, uint64_t srcStart) = 0;
+    virtual void UpdateTexture(RHITextureWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint8_t mipmap) = 0;
+    virtual void CopyTexture(RHITextureWrapper* pDst, RHITextureWrapper* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth) = 0;
+    virtual void ClearRenderTarget(const RHIRenderTarget* pRenderTarget, const Float4& clearColor, const Rect* clearRects, uint32_t numRects) = 0;
+    virtual void ClearDepthStencil(const RHIDepthStencil* pDepthStencil, bool clearDepth, bool clearStencil, float depth, uint32_t stencil, const Rect* clearRects, uint32_t numRects) = 0;
+    virtual void SetPipelineState(const PipelineInitializer& initializer) = 0;
+    virtual void SetConstantBuffers(uint8_t baseSlot, uint8_t numSots, RHIConstantBuffer* pConstants[]) = 0;
+    virtual void SetConstantBuffer(uint8_t slot, RHIConstantBuffer* pConstants) = 0;
+    virtual void SetTextures(uint8_t baseSlot, uint8_t numSots, RHINativeTexture* textures[]) = 0;
+    virtual void SetTexture(uint8_t slot, RHINativeTexture* textures) = 0;
+    virtual void SetViewPorts(Viewport* viewports, uint32_t numViewports) = 0;
+    virtual void SetScissorRect(Rect* scissorRects, uint32_t numScissorRects) = 0;
+    virtual void SetRenderTargetsAndDepthStencil(RHIRenderTarget** renderTargets, uint32_t numRenderTargets, RHIDepthStencil* depthStencilTarget) = 0;
+    virtual void SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers) = 0;
+    virtual void SetIndexBuffer(RHIIndexBuffer* pIndexBuffer) = 0;
+    virtual void DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex) = 0;
+    virtual void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount) = 0;
+    virtual void EndDrawCalls() = 0;
+    virtual void InsertFence(RHIFence* pFence, uint64_t semaphore) = 0;
+    virtual void BeginDrawCall() = 0;
+
+    RHIGraphicsContext() = default;
 };
 
-class RHICopyCommandList : public RHICommandList
+class RHIComputeContext : public RHIObject
 {
-public:
-    virtual void CopyResource(RHIResource* dstResource, RHIResource* srcResource) = 0;
-private:
 };
 
-class RHIComputeCommandList : public RHICommandList
+
+class RHISwapChain : public RHIObject
 {
 public:
-private:
-};
+    virtual RHIRenderTarget* GetCurrentColorTexture() = 0;
+    virtual RHIRenderTarget* GetColorTexture(uint8_t backBufferIndex) = 0;
+    virtual RHITextureDesc GetBackBufferDesc() const = 0;
+    virtual void BeginFrame(RHIGraphicsContext* pContext) = 0;
+    virtual void EndFrame(RHIGraphicsContext* pContext) = 0;
+    virtual void Present()
+    {
+        mBackBufferIndex = (mBackBufferIndex + 1) % mNumBackBuffers;
+    }
+    uint8_t GetBackBufferIndex() const
+    {
+        return mBackBufferIndex;
+    }
+    uint8_t GetNumBackBuffers() const
+    {
+        return mNumBackBuffers;
+    }
+    RHISwapChain() = default;
+    RHISwapChain(uint8_t numBackBuffers) : RHIObject(), mNumBackBuffers(numBackBuffers), mBackBufferIndex(0)
+    {
+    }
 
-class RHICommandQueue : public RHIObject
-{
-public:
-    virtual void Signal(const RHIFence* pFence, uint64_t fenceValue) const = 0;
-    virtual void Wait(const RHIFence* pFence, uint64_t fenceValue) const = 0;
-    virtual void ExecuteCommandLists(RHIGraphicCommandList* commandLists, uint32_t numPendingLists) = 0;
-};
-
-class RHICommandContext : public RHIObject
-{
-public:
-    // using RenderExeBuilder = std::function<void (*)(RHIGraphicCommandList*)>;
-    // using CopyExeBuilder = std::function<void (*)(RHICopyCommandList*)>;
-    // using ExecutionBuilder = std::function<void (*)(RHIGraphicCommandList*, RHICopyCommandList*)>;
-    // virtual void AddAsyncTask(RenderExeBuilder renderExeBuilder) = 0;
-    // virtual void AddAsyncTask(CopyExeBuilder renderExeBuilder) = 0;
-    // virtual void AddAsyncTask(ExecutionBuilder renderExeBuilder) = 0;
-    virtual RHIGraphicCommandList* GetGraphicCommandList() = 0;
-    virtual RHICopyCommandList* GetCopyCommandList() = 0;
-    virtual RHIComputeCommandList* GetComputeCommandList() = 0;
-    virtual void Reset(RHICommandQueue* pCommandQueue) = 0;
-    virtual void SetRenderTarget(RHITexture2D* renderTarget, uint8_t numRenderTargets) = 0;
-    virtual void SetDepthStencil(RHITexture2D* depthStencil) = 0;
-    virtual void ExecuteCommandList(RHIGraphicCommandList* pCommandList) = 0;
-    virtual void ExecuteCommandList(RHICopyCommandList* pCommandList) = 0;
-    virtual void ExecuteCommandList(RHIComputeCommandList* pCommandList) = 0;
-};
-
-class RHIFrameResource : public RHIObject
-{
-public:
-    virtual void UpdatePassConstant(uint32_t slot, const Blob& data) = 0;
-    virtual void UpdateMaterialConstant(uint32_t slot, const Blob& data) = 0;
-    virtual void SetGlobalTextureResource(uint32_t slot, RHITexture* pTex) = 0;
-};
-
-template<typename PlatformRHI> 
-static PlatformRHI& GetRHI()
-{
-    static PlatformRHI rhi{};
-    if (!rhi.mIsInitialized) rhi.Initialize();
-    return rhi;
-}
-
-class RHI : NonCopyable
-{
-    template<typename PlatformRHI>
-    friend PlatformRHI& GetRHI();
-    
-public:
-    virtual void Initialize() { mIsInitialized = true; }
-    virtual RHIBuffer* RHIAllocStagingBuffer(const RHIBufferDesc& desc) = 0;
-    virtual RHITexture* RHIAllocStagingTexture(const RHITextureDesc& desc) = 0;
-    virtual RHIBuffer* RHIAllocVertexBuffer(uint64_t vertexSize, uint64_t numVertices) = 0;
-    virtual RHIBuffer* RHIAllocIndexBuffer(uint64_t numIndices) = 0;
-    virtual RHIBuffer* RHIAllocConstantBuffer(uint64_t size) = 0;
-    virtual RHITexture* RHIAllocTexture(const RHITextureDesc& desc) = 0;
-    virtual RHIFrameBuffer* RHIAllocFrameBuffer(const RHITexture2D* rt, FrameBufferType type) = 0;
-    virtual void RHIUpdateVertexBuffer(RHIBuffer* pVertexBuffer, const void* pData, uint64_t numVertices) = 0;
-    virtual void RHIUpdateIndexBuffer(RHIBuffer* pIndexBuffer, const uint32_t* pData, uint64_t numIndices) = 0;
-    virtual void RHIUpdateStagingBuffer(RHIBuffer* pBuffer, const void* pData, uint64_t pos, uint64_t size) = 0;
-    virtual void RHICopyFromStagingBuffer(RHIBuffer* pBuffer, RHIBuffer* pStagingBuffer) = 0;
-
-    virtual RHICommandList* RHIGetCommandList(CommandQueueType type) = 0;
-    virtual RHICommandQueue* RHIGetCommandQueue(CommandQueueType type) = 0;
-    virtual void RHISetViewport(RHIGraphicCommandList* pCommandList, const Viewport* viewports, uint8_t numViewports) = 0;
-    virtual void RHISetScissorRect(RHIGraphicCommandList* pCommandList, const Rect* scissorRect, uint8_t numScissorRects) = 0;
-    virtual void RHISetVertexBuffer(RHIGraphicCommandList* pCommandList, RHIBuffer* pVertexBuffer) = 0;
-    virtual void RHISetIndexBuffer(RHIGraphicCommandList* pCommandList, RHIBuffer* pIndexBuffer) = 0;
-    virtual void RHIDrawIndexed(RHIGraphicCommandList* pCommandList, uint32_t numIndices, uint32_t startIndex) = 0;
-    virtual void RHIExecuteCommandList(RHIGraphicCommandList* pCommandList) = 0;
-    virtual ~RHI() = 0;
-
-private:
-    bool mIsInitialized = false;
+protected:
+    uint8_t mNumBackBuffers;
+    uint8_t mBackBufferIndex;
 };

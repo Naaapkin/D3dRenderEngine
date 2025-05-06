@@ -1,280 +1,215 @@
 #ifdef WIN32
-#include "D3D12CommandPacker.h"
+#include "D3D12CommandContext.h"
 
+#include "Engine/render/RHIDescriptors.h"
 #include "Engine/render/PC/Native/D3D12PipelineStateManager.h"
-#include "Engine/common/Exception.h"
-#include "Engine/memory/LinearAllocator.h"
-#include "Engine/render/PC/Private/D3D12Command.h"
-#include "Engine/render/PC/Resource/D3D12Resources.h"
-#include "Engine/render/PC/Native/D3D12DescriptorManager.h"
+#include "Engine/render/PC/Native/D3D12Resource.h"
+#include "Engine/render/PC/Native/D3D12RootSignatureManager.h"
 
-void D3D12CommandContext::Reset()
+void D3D12CommandContext::CopyBuffer(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, uint64_t size,
+    uint64_t dstStart, uint64_t srcStart)
 {
-    mCommandsBuffer.resize(1);
-    mAllocator.Initialize(1024, 8, 1024);
-    mResourceStateTracker.Cancel();
+    pCommandList->CopyBufferRegion(pDst->D3D12ResourcePtr(), dstStart, pSrc->D3D12ResourcePtr(), srcStart,
+        size);
+
+    // DynamicLinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyBufferRegion>();
+    // D3D12CommandCopyBufferRegion* pCommand = new (hCommand.Get()) D3D12CommandCopyBufferRegion{};
+    // pCommand->SetCopyParameters(static_cast<D3D12Buffer*>(pDst)->D3D12ResourcePtr(), static_cast<D3D12Buffer*>(pSrc)->D3D12ResourcePtr(), mSize, dstStart, srcStart);
+    // mCommandsBuffer.emplace_back(hCommand);
 }
 
-void D3D12CommandContext::TransitionResource(RHIResource* pResource, uint32_t subResource, ResourceState state)
+void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst,
+    const D3D12Resource* pSrc, uint32_t baseSubResourceIndex, uint32_t numSubResources)
 {
-    D3D12Resource* pD3D12Resource = reinterpret_cast<D3D12Resource*>(pResource);
-    std::pair<bool, D3D12_RESOURCE_BARRIER>&& result = mResourceStateTracker.ConvertSubResourceState(pD3D12Resource, subResource, state);
-    if (result.first)
+    ID3D12Resource* pDstResource = pDst->D3D12ResourcePtr();
+    ID3D12Resource* pSrcResource = pSrc->D3D12ResourcePtr();
+    D3D12_TEXTURE_COPY_LOCATION srcCopyLocation;
+    srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    srcCopyLocation.pResource = pSrcResource;
+    srcCopyLocation.SubresourceIndex = 0;
+    D3D12_TEXTURE_COPY_LOCATION dstCopyLocation;
+    dstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dstCopyLocation.pResource = pDstResource;
+
+    uint32_t upper = baseSubResourceIndex + numSubResources;
+
+    for (dstCopyLocation.SubresourceIndex = baseSubResourceIndex; dstCopyLocation.SubresourceIndex < upper; ++
+        dstCopyLocation.SubresourceIndex)
     {
-        LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandResourceBarrier>();
-        D3D12CommandResourceBarrier* pCommand = new (hCommand.Get()) D3D12CommandResourceBarrier{};
-        pCommand->SetBarriers(&result.second, 1);
-        mCommandsBuffer.emplace_back(hCommand);
-    }
-}
-
-void D3D12CommandContext::TransitionResource(RHIResource* pResource, ResourceState state)
-{
-    D3D12Resource* pD3D12Resource = reinterpret_cast<D3D12Resource*>(pResource);
-    std::vector<D3D12_RESOURCE_BARRIER>&& barriers = mResourceStateTracker.ConvertResourceState(pD3D12Resource, state);
-    if (!barriers.empty())
-    {
-        LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandResourceBarrier>();
-        D3D12CommandResourceBarrier* pCommand = new (hCommand.Get()) D3D12CommandResourceBarrier{};
-        pCommand->SetBarriers(barriers.data(), barriers.size());
-        mCommandsBuffer.emplace_back(hCommand);
-    }
-}
-
-void D3D12CommandContext::SetRootSignatureParas(
-    uint8_t materialConstantPara, uint8_t materialTexturePara)
-{
-    mMaterialCBufferPara = materialConstantPara;
-    mMaterialTexturePara = materialTexturePara;
-}
-
-void D3D12CommandContext::InsertNativeCommand(const std::function<void(D3D12CommandNative* pCommand)>& injection)
-{
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandNative>();
-    D3D12CommandNative* pNativeCommand = new (hCommand.Get()) D3D12CommandNative{};
-    injection(pNativeCommand);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::SetViewPorts(Viewport* viewports, uint32_t numViewports)
-{
-    std::vector<D3D12_VIEWPORT> d3d12Viewports{numViewports};
-    for (uint32_t i = 0; i < numViewports; i++)
-    {
-        D3D12_VIEWPORT& d3d12Viewport = d3d12Viewports[i];
-        d3d12Viewport.TopLeftX = viewports[i].mLeft;
-        d3d12Viewport.TopLeftY = viewports[i].mTop;
-        d3d12Viewport.Width = viewports[i].mWidth;
-        d3d12Viewport.Height = viewports[i].mHeight;
-        d3d12Viewport.MinDepth = viewports[i].mMinDepth;
-        d3d12Viewport.MaxDepth = viewports[i].mMaxDepth;
+        pCommandList->CopyTextureRegion(
+            &dstCopyLocation, 0, 0, 0, &srcCopyLocation, nullptr);
     }
 
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandSetViewports>();
-    D3D12CommandSetViewports* pCommand = new (hCommand.Get()) D3D12CommandSetViewports{};
-    pCommand->SetViewport(d3d12Viewports.data(), d3d12Viewports.size());
-    mCommandsBuffer.emplace_back(hCommand);
+    // DynamicLinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyTextureRegion>();
+    // D3D12CommandCopyTextureRegion* pCommand = new (hCommand.Get()) D3D12CommandCopyTextureRegion{};
+    // pCommand->SetCopyParameters(srcBox, srcLocation, dstLocation, dstX, dstY, dstZ);
+    // mCommandsBuffer.emplace_back(hCommand);
 }
 
-void D3D12CommandContext::SetScissorRect(Rect* scissorRects, uint32_t numScissorRects)
+void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst,
+    const D3D12Resource* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation,
+    uint32_t width, uint32_t height, uint32_t depth)
 {
-    std::vector<RECT> d3d12ScissorRects{numScissorRects};
-    for (uint32_t i = 0; i < numScissorRects; i++)
-    {
-        D3D12_RECT& d3d12ScissorRect = d3d12ScissorRects[i];
-        d3d12ScissorRect.top = scissorRects[i].mTop;
-        d3d12ScissorRect.left = scissorRects[i].mLeft;
-        d3d12ScissorRect.bottom = scissorRects[i].mBottom;
-        d3d12ScissorRect.right = scissorRects[i].mRight;
-    }
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandSetScissors>();
-    D3D12CommandSetScissors* pCommand = new (hCommand.Get()) D3D12CommandSetScissors{};
-    pCommand->SetScissorRects(d3d12ScissorRects.data(), numScissorRects);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::SetRenderTargetsAndDepthStencil(RHIFrameBuffer** renderTargets, uint32_t numRenderTargets,
-                                                          RHIFrameBuffer* depthStencilTarget)
-{
-    ASSERT(renderTargets && depthStencilTarget, TEXT("invalid render targets or depth stencil target"));
-    
-    D3D12FrameBuffer** d3d12FrameBuffers = reinterpret_cast<D3D12FrameBuffer**>(renderTargets);
-    std::vector<D3D12_CPU_DESCRIPTOR_HANDLE> rtvs{numRenderTargets};
-    for (uint32_t i = 0; i < numRenderTargets; i++)
-    {
-        rtvs[i] = d3d12FrameBuffers[i]->DescriptorHandle();
-        TransitionResource(d3d12FrameBuffers[i]->GetAttachment(), ResourceState::RENDER_TARGET);
-    }
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = static_cast<D3D12FrameBuffer*>(depthStencilTarget)->DescriptorHandle();
-    TransitionResource(depthStencilTarget->GetAttachment(), ResourceState::DEPTH_WRITE);
-
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandSetRTDS>();
-    D3D12CommandSetRTDS* pCommand = new (hCommand.Get()) D3D12CommandSetRTDS{};
-    pCommand->SetRenderTargets(rtvs.data(), rtvs.size());
-    pCommand->SetDepthStencilTarget(&dsv);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::ClearRenderTarget(RHIFrameBuffer* pRenderTarget, Float4 clearColor, const Rect* clearRects,
-                                           uint32_t numRects)
-{
-    TransitionResource(pRenderTarget->GetAttachment(), ResourceState::RENDER_TARGET);
-    float color[4] = {clearColor.x, clearColor.y, clearColor.z, clearColor.w};
-    D3D12_CPU_DESCRIPTOR_HANDLE rtv = static_cast<D3D12FrameBuffer*>(pRenderTarget)->DescriptorHandle();
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandClearRenderTarget>();
-    D3D12CommandClearRenderTarget* pCommand = new (hCommand.Get()) D3D12CommandClearRenderTarget{};
-    pCommand->SetClearDescriptors(rtv, color, reinterpret_cast<const RECT*>(clearRects), numRects);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::ClearDepthStencil(RHIFrameBuffer* depthStencil, bool clearDepth, bool clearStencil,
-                                            float depth, uint32_t stencil, const Rect* clearRects, uint32_t numRects)
-{
-    TransitionResource(depthStencil->GetAttachment(), ResourceState::DEPTH_WRITE);
-    D3D12_CPU_DESCRIPTOR_HANDLE dsv = static_cast<D3D12FrameBuffer*>(depthStencil)->DescriptorHandle();
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandClearDepthStencil>();
-    D3D12CommandClearDepthStencil* pCommand = new (hCommand.Get()) D3D12CommandClearDepthStencil{};
-    D3D12_CLEAR_FLAGS flags = clearDepth ? D3D12_CLEAR_FLAG_DEPTH : static_cast<D3D12_CLEAR_FLAGS>(0) | clearStencil ? D3D12_CLEAR_FLAG_STENCIL : static_cast<D3D12_CLEAR_FLAGS>(0);
-    pCommand->SetClearDescriptors(dsv, flags, reinterpret_cast<const RECT*>(clearRects), numRects, depth, stencil);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::BindVertexBuffers(RHIVertexBuffer* pVertexBuffer)
-{
-    D3D12Buffer* pBuffer = static_cast<D3D12Buffer*>(pVertexBuffer->GetVertexBuffer());
-    ID3D12Resource* pResource = static_cast<ID3D12Resource*>(pBuffer->NativeResource());
-
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandBindVertexBuffer>();
-    D3D12CommandBindVertexBuffer* pCommand = new (hCommand.Get()) D3D12CommandBindVertexBuffer{};
-    pCommand->SetVertexBuffers({
-        pResource->GetGPUVirtualAddress(), static_cast<uint32_t>(pBuffer->GetSize()), pVertexBuffer->GetVertexSize()
-    });
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::BindIndexBuffer(RHIIndexBuffer* pIndexBuffer)
-{
-    D3D12Buffer* pBuffer = static_cast<D3D12Buffer*>(pIndexBuffer->GetIndexBuffer());
-    ID3D12Resource* pResource = static_cast<ID3D12Resource*>(pBuffer->NativeResource());
-    D3D12_INDEX_BUFFER_VIEW ibv{pResource->GetGPUVirtualAddress(), static_cast<uint32_t>(pBuffer->GetSize()), DXGI_FORMAT_R32_UINT};
-
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandBindIndexBuffer>();
-    D3D12CommandBindIndexBuffer* pCommand = new (hCommand.Get()) D3D12CommandBindIndexBuffer{};
-    pCommand->SetIndexBuffer(&ibv);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::SetPipelineState(const PipelineInitializer& pPipelineInitializer)
-{
-    // TODO: verify pipeline state like count of render targets.
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandSetPipelineState>();
-    D3D12CommandSetPipelineState* pCommand = new (hCommand.Get()) D3D12CommandSetPipelineState{};
-    pCommand->SetPipelineState(Singleton<D3D12PipelineStateManager>::GetInstance().GetOrCreatePSO(pPipelineInitializer));
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t startIndexLocation, uint32_t instanceCount)
-{
-    // resource binding
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandNative>();
-    D3D12CommandNative* pNativeCommand = new (hCommand.Get()) D3D12CommandNative{};
-    D3D12OnlineDescriptorManager<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>& descriptorManager = Singleton<D3D12OnlineDescriptorManager<D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV>>::GetInstance(); 
-    
-    D3D12_GPU_DESCRIPTOR_HANDLE cbufferHandle = descriptorManager.Allocate(DescriptorType::PER_DRAW_CALL);
-    D3D12_GPU_DESCRIPTOR_HANDLE textureHandle = descriptorManager.Offset(cbufferHandle, 1);
-    uint8_t materialCBufferPara = mMaterialCBufferPara;
-    uint8_t materialTexturePara = mMaterialTexturePara;
-        
-    pNativeCommand->SetBind([=](ID3D12GraphicsCommandList* pCommandList)->void
-    {
-        pCommandList->SetGraphicsRootDescriptorTable(materialCBufferPara, cbufferHandle);
-        pCommandList->SetGraphicsRootDescriptorTable(materialTexturePara, textureHandle);
-    });
-    mCommandsBuffer.emplace_back(hCommand);
-
-    // draw call
-    hCommand = mAllocator.Allocate<RHICommand, D3D12CommandDrawIndexedInstanced>();
-    D3D12CommandDrawIndexedInstanced* pCommand = new (hCommand.Get()) D3D12CommandDrawIndexedInstanced{};
-    pCommand->SetSubMesh(indexPerInstance, startIndexLocation, instanceCount);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-std::vector<LinearAllocator::Handle<RHICommand>> D3D12CommandContext::Finalize(CommandListType type)
-{
-    std::vector<D3D12_RESOURCE_BARRIER> barriers = mResourceStateTracker.BuildPreTransitions();
-    if (!barriers.empty())
-    {
-        LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyTextureRegion>();
-        D3D12CommandResourceBarrier* pCommand = new(hCommand.Get()) D3D12CommandResourceBarrier{};
-        pCommand->SetBarriers(barriers.data(), barriers.size());
-        mCommandsBuffer[0] = hCommand;
-    }
-    mResourceStateTracker.StopTracking(type == CommandListType::COPY);
-    return mCommandsBuffer;
-}
-
-void D3D12CommandContext::CopyResource(RHIResource* pDst, RHIResource* pSrc)
-{
-    TransitionResource(pDst, ResourceState::COPY_DEST);
-    TransitionResource(pSrc, ResourceState::COPY_SOURCE);
-
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyResource>();
-    D3D12CommandCopyResource* pCommand = new (hCommand.Get()) D3D12CommandCopyResource{};
-    pCommand->SetCopyParameters(reinterpret_cast<D3D12Resource*>(pDst)->D3D12ResourcePtr(), reinterpret_cast<D3D12Resource*>(pSrc)->D3D12ResourcePtr());
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::CopyBuffer(RHIBuffer* pDst, RHIBuffer* pSrc, uint64_t size, uint64_t dstStart,
-                                     uint64_t srcStart)
-{
-    TransitionResource(pDst, ResourceState::COPY_DEST);
-    TransitionResource(pSrc, ResourceState::COPY_SOURCE);
-
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyBufferRegion>();
-    D3D12CommandCopyBufferRegion* pCommand = new (hCommand.Get()) D3D12CommandCopyBufferRegion{};
-    pCommand->SetCopyParameters(static_cast<D3D12Buffer*>(pDst)->D3D12ResourcePtr(), static_cast<D3D12Buffer*>(pSrc)->D3D12ResourcePtr(), size, dstStart, srcStart);
-    mCommandsBuffer.emplace_back(hCommand);
-}
-
-void D3D12CommandContext::CopyTexture(RHITexture* pDst, RHIResource* pSrc, uint32_t dstX, uint32_t dstY, uint32_t dstZ, const TextureCopyLocation& location)
-{
-    ID3D12Device* pDevice = Device()->GetD3D12Device();
-    ID3D12Resource* pDstResource = static_cast<D3D12Texture*>(pDst)->D3D12ResourcePtr();
-    ID3D12Resource* pSrcResource = static_cast<D3D12Texture*>(pSrc)->D3D12ResourcePtr();
+    ID3D12Resource* pDstResource = pDst->D3D12ResourcePtr();
+    ID3D12Resource* pSrcResource = pSrc->D3D12ResourcePtr();
     D3D12_RESOURCE_DESC dstDesc = pDstResource->GetDesc();
     D3D12_RESOURCE_DESC srcDesc = pSrcResource->GetDesc();
-    uint64_t size;
-    uint32_t subResource = location.mMipmap;
-    subResource += dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
-             0 : location.mArrayIndex * dstDesc.MipLevels;
-    D3D12_TEXTURE_COPY_LOCATION dstLocation;
-    dstLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    dstLocation.SubresourceIndex = subResource;
-    dstLocation.pResource = pDstResource;
-    pDevice->GetCopyableFootprints(&dstDesc, subResource, 1, 0, &dstLocation.PlacedFootprint, nullptr, nullptr, &size);
-    D3D12_TEXTURE_COPY_LOCATION srcLocation;
-    srcLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
-    srcLocation.SubresourceIndex = subResource;
-    srcLocation.pResource = pSrcResource;
-    pDevice->GetCopyableFootprints(&srcDesc, 0, 1, 0, &srcLocation.PlacedFootprint, nullptr, nullptr, nullptr);
-    D3D12_BOX srcBox { location.mPosX, location.mPosY, location.mPosZ, location.mPosX + location.mWidth, location.mPosY + location.mHeight, location.mPosZ + location.mDepth };
+    uint32_t srcSubResource = srcLocation.mMipmap + srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
+        0 : srcLocation.mArrayIndex * srcDesc.MipLevels;
+    uint32_t dstSubResource = dstLocation.mMipmap + dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
+        0 : dstLocation.mArrayIndex * dstDesc.MipLevels;
+    D3D12_TEXTURE_COPY_LOCATION srcCopyLocation;
+    srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    srcCopyLocation.pResource = pSrcResource;
+    srcCopyLocation.SubresourceIndex = srcSubResource;
+    D3D12_TEXTURE_COPY_LOCATION dstCopyLocation;
+    dstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dstCopyLocation.pResource = pDstResource;
+    dstCopyLocation.SubresourceIndex = dstSubResource;
+    D3D12_BOX srcBox{ srcLocation.mPosX, srcLocation.mPosY, srcLocation.mPosZ, srcLocation.mPosX + width, srcLocation.mPosY + height, srcLocation.mPosZ + depth };
 
-    TransitionResource(pDst, subResource, ResourceState::COPY_DEST);
-    TransitionResource(pSrc, subResource, ResourceState::COPY_SOURCE);
+    pCommandList->CopyTextureRegion(
+        &dstCopyLocation, dstLocation.mPosX, dstLocation.mPosY, dstLocation.mPosZ, &srcCopyLocation, &srcBox);
 
-    LinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyTextureRegion>();
-    D3D12CommandCopyTextureRegion* pCommand = new (hCommand.Get()) D3D12CommandCopyTextureRegion{};
-    pCommand->SetCopyParameters(pSrcResource, pDstResource, srcBox, srcLocation, dstLocation, dstX, dstY, dstZ);
-    mCommandsBuffer.emplace_back(hCommand);
+    // DynamicLinearAllocator::Handle<RHICommand> hCommand = mAllocator.Allocate<RHICommand, D3D12CommandCopyTextureRegion>();
+    // D3D12CommandCopyTextureRegion* pCommand = new (hCommand.Get()) D3D12CommandCopyTextureRegion{};
+    // pCommand->SetCopyParameters(srcBox, srcLocation, dstLocation, dstX, dstY, dstZ);
+    // mCommandsBuffer.emplace_back(hCommand);
 }
 
-D3D12CommandContext::D3D12CommandContext()
+void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst,
+    const D3D12Resource* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation)
 {
-    D3D12CommandContext::Reset();
+    ID3D12Resource* pDstResource = pDst->D3D12ResourcePtr();
+    ID3D12Resource* pSrcResource = pSrc->D3D12ResourcePtr();
+    D3D12_RESOURCE_DESC dstDesc = pDstResource->GetDesc();
+    D3D12_RESOURCE_DESC srcDesc = pSrcResource->GetDesc();
+    D3D12_TEXTURE_COPY_LOCATION srcCopyLocation;
+    srcCopyLocation.pResource = pSrcResource;
+    if (srcDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER)
+    {
+        uint32_t srcSubResource = srcLocation.mMipmap + srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
+            0 : srcLocation.mArrayIndex * srcDesc.MipLevels;
+        srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        srcCopyLocation.SubresourceIndex = srcSubResource;
+    }
+    else
+    {
+        ID3D12Device* pDevice;
+        pCommandList->GetDevice(IID_PPV_ARGS(&pDevice));
+        srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        pDevice->GetCopyableFootprints(&dstDesc, 0, 1, 0, &srcCopyLocation.PlacedFootprint, nullptr, nullptr, nullptr);
+        srcCopyLocation.PlacedFootprint.Offset = srcLocation.mPosX;
+        pDevice->Release();
+    }
+    
+    uint32_t dstSubResource = dstLocation.mMipmap + dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
+        0 : dstLocation.mArrayIndex * dstDesc.MipLevels;
+
+    D3D12_TEXTURE_COPY_LOCATION dstCopyLocation;
+    dstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dstCopyLocation.pResource = pDstResource;
+    dstCopyLocation.SubresourceIndex = dstSubResource;
+
+    pCommandList->CopyTextureRegion(
+        &dstCopyLocation, dstLocation.mPosX, dstLocation.mPosY, dstLocation.mPosZ, &srcCopyLocation, nullptr);
 }
 
-D3D12CommandContext::D3D12CommandContext(D3D12Device* parent) : D3D12DeviceChild(parent)
+void D3D12CommandContext::Initialize1(D3D12Device* pDevice,
+                                            RingDescriptorAllocator* pOnlineAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager*
+                                            pRootSigManager)
 {
-    D3D12CommandContext::Reset();
+    ASSERT(pDevice, TEXT("device must not be null."));
+    ASSERT(pOnlineAllocator, TEXT("OnlineDescriptorAllocator must not be null."));
+    
+    mDevice = pDevice;
+    mOnlineDescriptorAllocator = pOnlineAllocator;
+    mPSOManager = pPSOManager;
+    mRootSignatureManager = pRootSigManager;
+
+    mDummyCBuffer = mDevice->CreateCommitedResource(CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, CD3DX12_RESOURCE_DESC::Buffer(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT),
+        nullptr, D3D12_RESOURCE_STATE_COMMON);
+    D3D12_RESOURCE_DESC desc = CD3DX12_RESOURCE_DESC::Buffer(1);
+    //desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN
+    mDummyTexture = mDevice->CreateCommitedResource(CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, desc,
+        nullptr, D3D12_RESOURCE_STATE_COMMON);
 }
+
+//void D3D12CommandContext::Initialize2(ID3D12CommandQueue* directQueue, ID3D12CommandQueue* copyQueue,
+//                                      ID3D12CommandQueue* computeQueue)
+//{
+//    mDirectQueue = directQueue;
+//    mCopyQueue = copyQueue;
+//    mComputeQueue = computeQueue;
+//}
+
+void D3D12CommandContext::AllocDescriptors(std::unique_ptr<D3D12DescriptorHandle[]>& pDescriptors,
+                                           D3D12DescriptorHandle*& pTextures, const D3D12RootSignature* pRootSignature) const
+{
+    ASSERT(pRootSignature, TEXT("invalid root signature."));
+
+    const RootSignatureLayout& layout = pRootSignature->mLayout;
+    pDescriptors = mOnlineDescriptorAllocator->Allocate(layout.mNumTextures + layout.mNumMaterialConstants);
+    pTextures = pDescriptors.get() + layout.mNumMaterialConstants;
+    for (int i = 0; i < layout.mNumMaterialConstants; ++i)
+    {
+        static D3D12_CONSTANT_BUFFER_VIEW_DESC desc = { mDummyCBuffer->GetGPUVirtualAddress(), D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT };
+        mDevice->CreateConstantBufferView(desc, pDescriptors[i].mCPUHandle);
+    }
+    for (int i = 0; i < layout.mNumTextures; ++i)
+    {
+        static constexpr D3D12_SHADER_RESOURCE_VIEW_DESC desc = { DXGI_FORMAT_UNKNOWN, D3D12_SRV_DIMENSION_BUFFER, D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING, D3D12_BUFFER_SRV{0, 1, 1, D3D12_BUFFER_SRV_FLAG_NONE}};
+        mDevice->CreateShaderResourceView(mDummyTexture.Get(), desc, pTextures[i].mCPUHandle);
+    }
+}
+
+void D3D12CommandContext::GetOnlineDescriptorHeaps(std::unique_ptr<ID3D12DescriptorHeap*[]>& ppOnlineDescriptorHeaps, uint16_t& numHeaps) const
+{
+    //for (uint32_t i = 0; i < layout.mNumMaterialConstants - 2; i++)
+    //{
+    //    Blob& constant = *mConstantHandles[i];
+    //    D3D12PooledBuffer&& allocation = mRingBufferAllocator.Allocate(::AlignUpToMul<uint64_t, 256>()(constant.Size()));
+    //    memcpy(allocation.mCPUAddress, constant.Binary(), constant.Size());
+    //    D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc = {allocation.mGPUAddress, static_cast<UINT32>(allocation.mSize)};
+    //    mDevice->CreateConstantBufferView(cbvDesc, handles[layout.mNumTextures + i].mCPUHandle);
+    //    mAllocatedCBSize += allocation.mSize;
+    //}
+    ppOnlineDescriptorHeaps.reset(new ID3D12DescriptorHeap*[]{ mOnlineDescriptorAllocator->GetHeap()->GetD3D12DescriptorHeap() });
+    numHeaps = 1;
+}
+
+D3D12Device* D3D12CommandContext::GetDevice() const
+{
+    return mDevice;
+}
+
+const D3D12RootSignature* D3D12CommandContext::GetRootSignature() const
+{
+    // TODO: query root signature by name or index.
+    return mRootSignatureManager->GetByIndex(0);
+}
+
+//ID3D12CommandQueue* D3D12CommandContext::GetDirectQueue() const
+//{
+//    return mDirectQueue;
+//}
+//
+//ID3D12CommandQueue* D3D12CommandContext::GetCopyQueue() const
+//{
+//    return mCopyQueue;
+//}
+//
+//ID3D12CommandQueue* D3D12CommandContext::GetComputeQueue() const
+//{
+//    return mComputeQueue;
+//}
+
+ID3D12PipelineState* D3D12CommandContext::GetPipelineStateObject(
+	const D3D12RootSignature* pRootSignature,
+	const PipelineInitializer& pPipelineInitializer) const
+{
+    return mPSOManager->GetOrCreateGraphicsPSO(pRootSignature->mRootSignature.Get(), pPipelineInitializer);
+}
+
+D3D12CommandContext::D3D12CommandContext() = default;
 #endif

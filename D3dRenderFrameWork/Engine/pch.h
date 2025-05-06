@@ -10,6 +10,7 @@
 #include <queue>
 #include <unordered_set>
 #include <unordered_map>
+#include <map>
 #include <functional>
 #include <string>
 #include <array>
@@ -41,7 +42,7 @@
 #include <DirectXColors.h>
 #include <DirectXCollision.h>
 
-#include "Engine/render/d3dx12.h"
+#include "Engine/render/PC/d3dx12.h"
 #include "dxgi.h"
 
 #pragma comment(lib, "Shcore.lib")
@@ -57,10 +58,23 @@ typedef HRESULT(WINAPI* pDXGIGetDebugInterface)(REFIID riid, void** pDebug);
 
 using namespace Microsoft::WRL;
 
+#undef min
+#undef max
+
+#define NODRAWTEXT
+#define NOGDI
+#define NOBITMAP
+
+#define MEM_VIRTUAL_ALLOC(size) VirtualAlloc(nullptr, (size), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)
+#define MEM_VIRTUAL_FREE(mem) VirtualFree((mem), 0, MEM_RELEASE)
+
 #if __cplusplus >= 202002L  // check cpp20
 template<typename T>
 concept Numeric = std::is_arithmetic_v<T>;
 #endif
+#else
+#define MEM_VIRTUAL_ALLOC(mSize) malloc((mSize))
+#define MEM_VIRTUAL_FREE(mem) free((mem))
 #endif
 
 // -----------------------------------Definition----------------------------------------- //
@@ -82,25 +96,14 @@ concept Numeric = std::is_arithmetic_v<T>;
 #define DEFAULT_COPY_CONSTRUCTOR(name) name(const name& other) = default;
 #define DEFAULT_MOVE_OPERATOR(name) name& operator=(name&& other) noexcept = default;
 #define DEFAULT_COPY_OPERATOR(name) name& operator=(const name& other) = default;
-#define DEFAULT_COPY_MOVE(name) DEFAULT_COPY_CONSTRUCTOR(name) name(name&& other);\
+#define DEFAULT_COPY_MOVE(name) DEFAULT_COPY_CONSTRUCTOR(name);\
     DEFAULT_MOVE_CONSTRUCTOR(name);\
     DEFAULT_COPY_OPERATOR(name);\
     DEFAULT_MOVE_OPERATOR(name);
 #define NON_COPYABLE(name) DELETE_COPY_CONSTRUCTOR(name);\
     DELETE_COPY_OPERATOR(name);
-
-struct NonCopyable
-{
-public:
-    NonCopyable() = default;
-    ~NonCopyable() = default;
-    
-protected:
-    DELETE_COPY_OPERATOR(NonCopyable);
-    DELETE_COPY_CONSTRUCTOR(NonCopyable);
-    DEFAULT_MOVE_OPERATOR(NonCopyable);
-    DEFAULT_MOVE_CONSTRUCTOR(NonCopyable);
-};
+#define NON_MOVEABLE(name) DELETE_MOVE_CONSTRUCTOR(name);\
+    DELETE_MOVE_OPERATOR(name);
 
 #ifdef UNICODE
 #define TO_STRING(str) std::to_wstring(str)

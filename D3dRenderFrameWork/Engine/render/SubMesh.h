@@ -1,7 +1,10 @@
 #pragma once
+#include "Engine/pch.h"
 
-class SubMesh
+struct SubMesh
 {
-public:
-    
+    uint32_t mIndexNum;
+    uint32_t mStartIndex;
+    int32_t mBaseVertex;
+    // boundingBox
 };

@@ -53,7 +53,7 @@ struct StateConverter
     std::vector<StateConversion> ConvertState(ResourceState dstState);
     bool ConvertSubResource(StateConversion& conversion);
     std::vector<StateConversion> PreConvert(const ResourceState* srcStates) const;
-    std::vector<StateConversion> Join(StateConverter& stateConverter);
+    std::vector<StateConversion> Join(const StateConverter& stateConverter);
     const ResourceState* GetDesiredInitialState() const;
     const ResourceState* GetDestinationStates() const;
     uint32_t GetSubResourceCount() const;
@@ -82,21 +82,23 @@ private:
 class ResourceStateTracker : NonCopyable
 {
 public:
-    void Track(D3D12Buffer& buffer);
-    void Track(D3D12Texture& texture);
-    std::vector<D3D12_RESOURCE_BARRIER> rightJoin(ResourceStateTracker& other);
-    std::pair<bool, D3D12_RESOURCE_BARRIER> ConvertSubResourceState(D3D12Resource* pResource, uint32_t subResourceIndex,
+    static void AppendResource(const D3D12Resource* pResource, ResourceState initialState);
+    static void RemoveResource(const D3D12Resource* pResource);
+    //void Track(const D3D12Resource& pResource);
+    std::vector<D3D12_RESOURCE_BARRIER> Join(ResourceStateTracker& other);
+    std::pair<bool, D3D12_RESOURCE_BARRIER> ConvertSubResourceState(const D3D12Resource* pResource, uint32_t subResourceIndex,
                                                                     ResourceState dstState);
-    std::vector<D3D12_RESOURCE_BARRIER> ConvertResourceState(D3D12Resource* pResource, ResourceState dstState);
+    std::vector<D3D12_RESOURCE_BARRIER> ConvertResourceState(const D3D12Resource* pResource, ResourceState dstState);
     std::vector<D3D12_RESOURCE_BARRIER> BuildPreTransitions() const;
     void StopTracking(bool isCopyQueue);
     void Cancel();
     
 private:
-    StateConverter* GetStateConverter(D3D12Resource* pResource);
+    StateConverter* GetStateConverter(const D3D12Resource* pResource);
 
-    static std::unordered_map<D3D12Resource*, std::vector<ResourceState>, HashPtrAsTyped<D3D12Resource*>> sGlobalResourceStates;
+    static std::unordered_map<const D3D12Resource*, std::vector<ResourceState>> sGlobalResourceStates;
+    static std::shared_mutex sGlobalResourceStateMutex;
     
-    std::unordered_map<D3D12Resource*, StateConverter, HashPtrAsTyped<D3D12Resource*>> mStateConverters;
+    std::unordered_map<const D3D12Resource*, StateConverter> mStateConverters;
 };
 #endif

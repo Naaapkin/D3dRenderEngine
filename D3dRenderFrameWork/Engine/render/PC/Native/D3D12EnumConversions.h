@@ -4,15 +4,32 @@
 #include "Engine/render/RHIDescriptors.h"
 #include "Engine/common/Exception.h"
 
+static CommandListType ConvertFromD3D12CommandListType(D3D12_COMMAND_LIST_TYPE type);
 static Format ConvertFromDXGIFormat(DXGI_FORMAT format);
 static DXGI_FORMAT ConvertToDXGIFormat(Format format);
 static D3D12_COMPARISON_FUNC ConvertToD3D12CompareFunction(CompareFunction function);
 static D3D12_BLEND_OP ConvertToD3D12BlendOperation(BlendOperation operation);
 static D3D12_LOGIC_OP ConvertToD3D12LogicOperation(LogicOperation operation);
 static D3D12_BLEND ConvertToD3D12Blend(BlendMode blend);
+static D3D12_STENCIL_OP ConvertToD3D12StencilOp(StencilOperation op);
 static D3D12_CULL_MODE ConvertToD3D12CullMode(CullMode mode);
 static D3D12_FILL_MODE ConvertToD3D12DrawMode(DrawMode mode);
 static D3D12_COMMAND_LIST_TYPE ConvertToD3D12CommandListType(CommandListType type);
+
+inline CommandListType ConvertFromD3D12CommandListType(D3D12_COMMAND_LIST_TYPE type)
+{
+    switch (type)
+    {
+    case D3D12_COMMAND_LIST_TYPE_DIRECT:
+        return CommandListType::GRAPHIC;
+    case D3D12_COMMAND_LIST_TYPE_COMPUTE:
+        return CommandListType::COMPUTE;
+    case D3D12_COMMAND_LIST_TYPE_COPY:
+        return CommandListType::COPY;
+    default:
+        THROW_EXCEPTION(TEXT("Unknown D3D12 command list type"));
+    }
+}
 
 Format ConvertFromDXGIFormat(DXGI_FORMAT format)
 {
@@ -120,8 +137,8 @@ DXGI_FORMAT ConvertToDXGIFormat(Format format)
 D3D12_COMPARISON_FUNC ConvertToD3D12CompareFunction(CompareFunction function)
 {
     switch (function) {
-    case D3D12_COMPARISON_FUNC_ALWAYS:   return D3D12_COMPARISON_FUNC_NEVER;
-    case CompareFunction::NEVER:          return D3D12_COMPARISON_FUNC_NEVER;
+    case CompareFunction::ALWAYS:        return D3D12_COMPARISON_FUNC_ALWAYS;
+    case CompareFunction::NEVER:         return D3D12_COMPARISON_FUNC_NEVER;
     case CompareFunction::LESS:          return D3D12_COMPARISON_FUNC_LESS;
     case CompareFunction::EQUAL:         return D3D12_COMPARISON_FUNC_EQUAL;
     case CompareFunction::LESS_EQUAL:    return D3D12_COMPARISON_FUNC_LESS_EQUAL;
@@ -137,18 +154,18 @@ D3D12_BLEND_OP ConvertToD3D12BlendOperation(BlendOperation operation)
 {
     switch (operation)
     {
-        case D3D12_BLEND_OP_ADD:
-            return D3D12_BLEND_OP_ADD;
-        case D3D12_BLEND_OP_SUBTRACT:
-            return D3D12_BLEND_OP_SUBTRACT;
-        case D3D12_BLEND_OP_REV_SUBTRACT:
-            return D3D12_BLEND_OP_REV_SUBTRACT;
-        case D3D12_BLEND_OP_MIN:
-            return D3D12_BLEND_OP_MIN;
-        case D3D12_BLEND_OP_MAX:
-            return D3D12_BLEND_OP_MAX;
-        default:
-            THROW_EXCEPTION(TEXT("Unsupported BlendOperation"));
+    case BlendOperation::ADD:
+        return D3D12_BLEND_OP_ADD;
+    case BlendOperation::SUBTRACT:
+        return D3D12_BLEND_OP_SUBTRACT;
+    case BlendOperation::REV_SUBTRACT:
+        return D3D12_BLEND_OP_REV_SUBTRACT;
+    case BlendOperation::MIN:
+        return D3D12_BLEND_OP_MIN;
+    case BlendOperation::MAX:
+        return D3D12_BLEND_OP_MAX;
+    default:
+        THROW_EXCEPTION(TEXT("Unsupported BlendOperation"));
     }
 }
 
@@ -205,6 +222,22 @@ D3D12_BLEND ConvertToD3D12Blend(BlendMode blend)
     }
 }
 
+D3D12_STENCIL_OP ConvertToD3D12StencilOp(StencilOperation op)
+{
+    switch (op)
+    {
+    case StencilOperation::KEEP:      return D3D12_STENCIL_OP_KEEP;
+    case StencilOperation::ZERO:      return D3D12_STENCIL_OP_ZERO;
+    case StencilOperation::REPLACE:   return D3D12_STENCIL_OP_REPLACE;
+    case StencilOperation::INCR_SAT:  return D3D12_STENCIL_OP_INCR_SAT;
+    case StencilOperation::DECR_SAT:  return D3D12_STENCIL_OP_DECR_SAT;
+    case StencilOperation::INVERT:    return D3D12_STENCIL_OP_INVERT;
+    case StencilOperation::INCR:      return D3D12_STENCIL_OP_INCR;
+    case StencilOperation::DECR:      return D3D12_STENCIL_OP_DECR;
+    default:                          return D3D12_STENCIL_OP_KEEP; // Fallback
+    }
+}
+
 D3D12_CULL_MODE ConvertToD3D12CullMode(CullMode mode)
 {
     switch (mode)
@@ -245,6 +278,101 @@ D3D12_COMMAND_LIST_TYPE ConvertToD3D12CommandListType(CommandListType type)
         return D3D12_COMMAND_LIST_TYPE_COMPUTE;
     default:
         THROW_EXCEPTION(TEXT("unsupported command list type."));
+    }
+}
+
+inline D3D12_SRV_DIMENSION ConvertToD3D12SRVDimension(TextureDimension dimension)
+{
+    switch (dimension)
+    {
+    case TextureDimension::TEXTURE1D:
+        return D3D12_SRV_DIMENSION_TEXTURE1D;
+    case TextureDimension::TEXTURE2D:
+        return D3D12_SRV_DIMENSION_TEXTURE2D;
+    case TextureDimension::TEXTURE3D:
+        return D3D12_SRV_DIMENSION_TEXTURE3D;
+    case TextureDimension::TEXTURE_CUBE:
+        return D3D12_SRV_DIMENSION_TEXTURECUBE;
+    case TextureDimension::TEXTURE1D_ARRAY:
+        return D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+    case TextureDimension::TEXTURE2D_ARRAY:
+        return D3D12_SRV_DIMENSION_TEXTURE2DARRAY;
+    default:
+        WARN("unsupported texture dimension.");
+        return D3D12_SRV_DIMENSION_UNKNOWN;
+    }
+}
+
+inline TextureDimension ConvertFromD3DSRVFormat(D3D_SRV_DIMENSION dimension)
+{
+    switch (dimension)
+    {
+    case D3D_SRV_DIMENSION_BUFFER:
+        return TextureDimension::BUFFER;
+    case D3D_SRV_DIMENSION_TEXTURE1D:
+        return TextureDimension::TEXTURE1D;
+    case D3D_SRV_DIMENSION_TEXTURE2D:
+        return TextureDimension::TEXTURE2D;
+    case D3D_SRV_DIMENSION_TEXTURE3D:
+        return TextureDimension::TEXTURE3D;
+    case D3D_SRV_DIMENSION_TEXTURECUBE:
+        return TextureDimension::TEXTURE_CUBE;
+    case D3D_SRV_DIMENSION_TEXTURE1DARRAY:
+        return TextureDimension::TEXTURE1D_ARRAY;
+    case D3D_SRV_DIMENSION_TEXTURE2DARRAY:
+        return TextureDimension::TEXTURE2D_ARRAY;
+    default:
+        WARN("Unsupported D3D SRV dimension.");
+        return TextureDimension::TEXTURE2D; // 或者定义一个 UNKNOWN 值
+    }
+}
+
+inline D3D12_SHADER_RESOURCE_VIEW_DESC ConvertToD3D12SRVDesc(RHITextureDesc desc)
+{
+    D3D12_SHADER_RESOURCE_VIEW_DESC d3d12Desc;
+    d3d12Desc.Format = ::ConvertToDXGIFormat(desc.mFormat);
+    d3d12Desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+    switch (desc.mDimension)
+    {
+    case TextureDimension::TEXTURE1D:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1D;
+        d3d12Desc.Texture1D.MipLevels = desc.mMipLevels;
+        d3d12Desc.Texture1D.MostDetailedMip = 0;
+        return d3d12Desc;
+    case TextureDimension::TEXTURE2D:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        d3d12Desc.Texture2D.MipLevels = desc.mMipLevels;
+        d3d12Desc.Texture2D.PlaneSlice = 0;
+        d3d12Desc.Texture2D.MostDetailedMip = 0;
+        return d3d12Desc;
+    case TextureDimension::TEXTURE3D:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE3D;
+        d3d12Desc.Texture3D.MipLevels = desc.mMipLevels;
+        d3d12Desc.Texture3D.MostDetailedMip = 0;
+        return d3d12Desc;
+    case TextureDimension::TEXTURE_CUBE:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURECUBE;
+        d3d12Desc.TextureCube.MipLevels = desc.mMipLevels;
+        d3d12Desc.TextureCube.MostDetailedMip = 0;
+        return d3d12Desc;
+    case TextureDimension::TEXTURE1D_ARRAY:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+        d3d12Desc.Texture1DArray.MipLevels = desc.mMipLevels;
+        d3d12Desc.Texture1DArray.MostDetailedMip = 0;
+        d3d12Desc.Texture1DArray.ArraySize = desc.mDepth;
+        d3d12Desc.Texture1DArray.FirstArraySlice = 0;
+        return d3d12Desc;
+    case TextureDimension::TEXTURE2D_ARRAY:
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE1DARRAY;
+        d3d12Desc.Texture2DArray.MipLevels = desc.mMipLevels;
+        d3d12Desc.Texture2DArray.MostDetailedMip = 0;
+        d3d12Desc.Texture2DArray.ArraySize = desc.mDepth;
+        d3d12Desc.Texture2DArray.FirstArraySlice = 0;
+        return d3d12Desc;
+    default:
+        WARN("unsupported texture dimension.");
+        d3d12Desc.ViewDimension = D3D12_SRV_DIMENSION_UNKNOWN;
+        return d3d12Desc;
     }
 }
 #endif

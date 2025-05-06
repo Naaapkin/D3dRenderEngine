@@ -4,9 +4,6 @@
 #include "Engine/render/PC/D3dUtil.h"
 #include "Engine/common/helper.h"
 
-class D3D12CommandObjectPool;
-class D3D12CommandQueue;
-
 class D3D12Device : NonCopyable
 {
 public:
@@ -14,21 +11,23 @@ public:
     
     GUID Guid() const;
     ID3D12Device* GetD3D12Device() const;
-    UComPtr<ID3D12Resource> CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heapProp,
-                                                   const D3D12_HEAP_FLAGS& heapFlags,
-                                                   const D3D12_RESOURCE_DESC& desc,
-                                                   const D3D12_CLEAR_VALUE& clearValue,
-                                                   D3D12_RESOURCE_STATES initialState) const;
-    UComPtr<ID3D12PipelineState>    CreatePipelineStateObject(CONST D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc) const;
-    UComPtr<ID3D12DescriptorHeap>   CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type,
-                                                       D3D12_DESCRIPTOR_HEAP_FLAGS flag, uint32_t numDescriptors) const;
+
+    UComPtr<ID3D12Heap>             CreateHeap(const D3D12_HEAP_DESC& desc) const;
+    UComPtr<ID3D12Resource>         CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heapProp, const D3D12_HEAP_FLAGS& heapFlags, const D3D12_RESOURCE_DESC& desc, const
+                                                           D3D12_CLEAR_VALUE* clearValue, D3D12_RESOURCE_STATES initialState) const;
+    UComPtr<ID3D12Resource>         CreatePlacedResource(ID3D12Heap* pHeap, uint64_t offset, const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE& clearValue) const;
+    UComPtr<ID3D12PipelineState>    CreateGraphicsPipelineStateObject(const D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc) const;
+    UComPtr<ID3D12PipelineState>    CreateComputePipelineStateObject(const D3D12_COMPUTE_PIPELINE_STATE_DESC& desc) const;
+    UComPtr<ID3D12DescriptorHeap>   CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type, D3D12_DESCRIPTOR_HEAP_FLAGS flag, uint32_t numDescriptors) const;
     UComPtr<ID3D12RootSignature>    CreateRootSignature(const D3D12_VERSIONED_ROOT_SIGNATURE_DESC& desc) const;
     UComPtr<ID3D12CommandQueue>     CreateCommandQueue(const D3D12_COMMAND_QUEUE_DESC& queueDesc) const;
-    UComPtr<ID3D12GraphicsCommandList> CreateCommandList(D3D12_COMMAND_LIST_TYPE type,
-                                                         ID3D12CommandAllocator* pAllocator) const;
+    UComPtr<ID3D12GraphicsCommandList> CreateCommandList(D3D12_COMMAND_LIST_TYPE type, ID3D12CommandAllocator* pAllocator) const;
     UComPtr<ID3D12CommandAllocator> CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE type) const;
     UComPtr<ID3D12Fence>            CreateFence() const;
-    
+    UComPtr<IDXGISwapChain1>        CreateSwapChain(ID3D12CommandQueue* pQueue, const DXGI_SWAP_CHAIN_DESC1& desc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* fullScreenDesc) const;
+    void CreateConstantBufferView(D3D12_CONSTANT_BUFFER_VIEW_DESC desc, D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+    void CreateShaderResourceView(ID3D12Resource* pResource, D3D12_SHADER_RESOURCE_VIEW_DESC desc, D3D12_CPU_DESCRIPTOR_HANDLE handle) const;
+
     void CreateRenderTargetView(ID3D12Resource* pResource, D3D12_CPU_DESCRIPTOR_HANDLE dst) const;
     void CreateDepthStencilView(ID3D12Resource* pResource, D3D12_CPU_DESCRIPTOR_HANDLE dst) const;
     
@@ -80,19 +79,36 @@ inline ID3D12Device* D3D12Device::GetD3D12Device() const
     return mDevice.Get();
 }
 
+inline UComPtr<ID3D12Heap> D3D12Device::CreateHeap(const D3D12_HEAP_DESC& desc) const
+{
+    return ::CreateDeap(mDevice.Get(), desc);
+}
+
 inline UComPtr<ID3D12Resource> D3D12Device::CreateCommitedResource(const D3D12_HEAP_PROPERTIES& heapProp,
                                                                    const D3D12_HEAP_FLAGS& heapFlags,
                                                                    const D3D12_RESOURCE_DESC& desc,
-                                                                   const D3D12_CLEAR_VALUE& clearValue,
+                                                                   const D3D12_CLEAR_VALUE* clearValue,
                                                                    D3D12_RESOURCE_STATES initialState) const
 {
     return ::CreateCommitedResource(mDevice.Get(), heapProp, heapFlags, desc, clearValue, initialState);
 }
 
-inline UComPtr<ID3D12PipelineState> D3D12Device::CreatePipelineStateObject(
+inline UComPtr<ID3D12Resource> D3D12Device::CreatePlacedResource(ID3D12Heap* pHeap, uint64_t offset,
+    const D3D12_RESOURCE_DESC& desc, D3D12_RESOURCE_STATES initialState, const D3D12_CLEAR_VALUE& clearValue) const
+{
+    return ::CreatePlacedResource(mDevice.Get(), pHeap, offset, desc, initialState, clearValue);
+}
+
+inline UComPtr<ID3D12PipelineState> D3D12Device::CreateGraphicsPipelineStateObject(
     CONST D3D12_GRAPHICS_PIPELINE_STATE_DESC& desc) const
 {
-    return ::CreatePipelineStateObject(mDevice.Get(), desc);
+    return ::CreateGraphicsPipelineStateObject(mDevice.Get(), desc);
+}
+
+inline UComPtr<ID3D12PipelineState> D3D12Device::CreateComputePipelineStateObject(
+    const D3D12_COMPUTE_PIPELINE_STATE_DESC& desc) const
+{
+    return ::CreateComputePipelineStateObject(mDevice.Get(), desc);
 }
 
 inline UComPtr<ID3D12DescriptorHeap> D3D12Device::CreateDescriptorHeap(D3D12_DESCRIPTOR_HEAP_TYPE type,
@@ -126,6 +142,23 @@ inline UComPtr<ID3D12CommandAllocator> D3D12Device::CreateCommandAllocator(D3D12
 inline UComPtr<ID3D12Fence> D3D12Device::CreateFence() const
 {
     return ::CreateFence(mDevice.Get());
+}
+
+inline UComPtr<IDXGISwapChain1> D3D12Device::CreateSwapChain(ID3D12CommandQueue* pQueue, const DXGI_SWAP_CHAIN_DESC1& desc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* fullScreenDesc) const
+{
+    return ::CreateSwapChainForHwnd(mFactoryHandle.Get(), pQueue, GetActiveWindow(), desc, fullScreenDesc);
+}
+
+inline void D3D12Device::CreateConstantBufferView(D3D12_CONSTANT_BUFFER_VIEW_DESC desc,
+                                                  D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+{
+    mDevice->CreateConstantBufferView(&desc, handle);
+}
+
+inline void D3D12Device::CreateShaderResourceView(ID3D12Resource* pResource,
+                                                  D3D12_SHADER_RESOURCE_VIEW_DESC desc, D3D12_CPU_DESCRIPTOR_HANDLE handle) const
+{
+    mDevice->CreateShaderResourceView(pResource, &desc, handle);
 }
 
 inline void D3D12Device::CreateRenderTargetView(ID3D12Resource* pResource, D3D12_CPU_DESCRIPTOR_HANDLE dst) const
@@ -171,7 +204,7 @@ inline D3D12Device::D3D12Device() = default;
 inline D3D12Device::D3D12Device(UComPtr<IDXGIFactory4> pFactory, UComPtr<ID3D12Device> pDevice) : mFactoryHandle(std::move(pFactory)), mDevice(std::move(pDevice))
 {
 #if defined(DEBUG) or defined(_DEBUG)
-    if (SUCCEEDED(pDevice->QueryInterface(IID_PPV_ARGS(mInfoQueue.GetAddressOf()))))
+    if (SUCCEEDED(mDevice->QueryInterface(IID_PPV_ARGS(mInfoQueue.GetAddressOf()))))
     {
         mInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_CORRUPTION, TRUE);
         mInfoQueue->SetBreakOnSeverity(D3D12_MESSAGE_SEVERITY_ERROR, TRUE);
@@ -203,8 +236,8 @@ inline std::unique_ptr<D3D12Device> D3D12Device::CreateD3D12Device()
         CreateDXGIFactory1(IID_PPV_ARGS(&pFactory))
     );
 
-    if (FAILED(D3D12CreateDevice(nullptr,   // 使用主显示器适配器
-        D3D_FEATURE_LEVEL_11_0,                     // 最低支持DX11
+    if (FAILED(D3D12CreateDevice(nullptr,   // use primary graphics adapter(GPU)
+        D3D_FEATURE_LEVEL_11_0,                     // support DX11
         IID_PPV_ARGS(&pDevice))))
     {
         // 如果失败，尝试使用WARP适配器
@@ -221,7 +254,7 @@ inline std::unique_ptr<D3D12Device> D3D12Device::CreateD3D12Device()
         );
     }
 
-    return std::make_unique<D3D12Device>{pFactory, pDevice};
+    return std::make_unique<D3D12Device>(pFactory, pDevice);
 }
 
 inline std::vector<D3D12_STATIC_SAMPLER_DESC> D3D12Device::GetStaticSamplers()
@@ -296,38 +329,38 @@ inline std::vector<D3D12_STATIC_SAMPLER_DESC> D3D12Device::GetStaticSamplers()
         }
     };
 }
-
-inline D3D12Device* D3D12DeviceChild::Device() const
-{
-    return mDevice;
-}
-
-inline D3D12DeviceChild::D3D12DeviceChild(D3D12Device* parent) : mDevice(parent) { }
-
-inline D3D12DeviceChild::D3D12DeviceChild(D3D12DeviceChild&& other) noexcept : mDevice(other.mDevice)
-{
-    other.mDevice = nullptr;
-}
-
-inline D3D12DeviceChild::~D3D12DeviceChild() = default;
-
-inline D3D12DeviceChild& D3D12DeviceChild::operator=(D3D12DeviceChild&& other) noexcept
-{
-    if (&other != this)
-    {
-        mDevice = other.mDevice;
-        other.mDevice = nullptr;
-    }
-    return *this;
-}
-
-inline bool D3D12DeviceChild::operator==(const D3D12DeviceChild& other) const noexcept
-{
-    return mDevice == other.mDevice;
-}
-
-inline bool D3D12DeviceChild::operator!=(const D3D12DeviceChild& other) const noexcept
-{
-    return mDevice != other.mDevice;
-}
+//
+//inline D3D12Device* D3D12DeviceChild::Device() const
+//{
+//    return mDevice;
+//}
+//
+//inline D3D12DeviceChild::D3D12DeviceChild(D3D12Device* parent) : mDevice(parent) { }
+//
+//inline D3D12DeviceChild::D3D12DeviceChild(D3D12DeviceChild&& other) noexcept : mDevice(other.mDevice)
+//{
+//    other.mDevice = nullptr;
+//}
+//
+//inline D3D12DeviceChild::~D3D12DeviceChild() = default;
+//
+//inline D3D12DeviceChild& D3D12DeviceChild::operator=(D3D12DeviceChild&& other) noexcept
+//{
+//    if (&other != this)
+//    {
+//        mDevice = other.mDevice;
+//        other.mDevice = nullptr;
+//    }
+//    return *this;
+//}
+//
+//inline bool D3D12DeviceChild::operator==(const D3D12DeviceChild& other) const noexcept
+//{
+//    return mDevice == other.mDevice;
+//}
+//
+//inline bool D3D12DeviceChild::operator!=(const D3D12DeviceChild& other) const noexcept
+//{
+//    return mDevice != other.mDevice;
+//}
 #endif
