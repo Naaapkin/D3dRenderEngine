@@ -1,37 +1,5 @@
 #include "Renderer.h"
 
-RenderTargetRef RenderTargetHandle::GetRenderTargetRef() const { return mRTRef; }
-
-uint32_t RenderTargetHandle::GetWidth() const { return mDesc.mWidth; }
-
-uint32_t RenderTargetHandle::GetHeight() const { return mDesc.mHeight; }
-
-Format RenderTargetHandle::GetFormat() const { return mDesc.mFormat; }
-
-bool RenderTargetHandle::MSAAEnabled() const { return mDesc.mSampleCount > 1; }
-
-RenderTargetHandle::RenderTargetHandle() = default;
-
-RenderTargetHandle::RenderTargetHandle(RenderTargetRef renderTargetRef, const RHITextureDesc& desc): mRTRef(renderTargetRef), mDesc(desc)
-{ }
-
-DepthStencilRef DepthStencilHandle::GetRenderTargetRef() const { return mDSRef; }
-
-uint32_t DepthStencilHandle::GetWidth() const { return mDesc.mWidth; }
-
-uint32_t DepthStencilHandle::GetHeight() const { return mDesc.mHeight; }
-
-Format DepthStencilHandle::GetFormat() const { return mDesc.mFormat; }
-
-bool DepthStencilHandle::MSAAEnabled() const { return mDesc.mSampleCount > 1; }
-
-bool DepthStencilHandle::MipmapEnabled() const { return mDesc.mMipLevels > 1; }
-
-DepthStencilHandle::DepthStencilHandle() = default;
-
-DepthStencilHandle::DepthStencilHandle(RenderTargetRef depthStencilRef, const RHITextureDesc& desc): mDSRef(depthStencilRef), mDesc(desc)
-{ }
-
 std::unique_ptr<Material> Renderer::createMaterial(RHIShader* pShader)
 {
 	ASSERT(pShader, TEXT("mShader must not be null."));
@@ -105,17 +73,18 @@ std::unique_ptr<MaterialInstance> Renderer::createMaterialInstance(const Materia
 void Renderer::initialize()
 {
 	uint8_t numBackBuffer = 3;
+	mPassConstants.reset(new PassConstants{});
 
 	// initialize render hardware interface(rhi).
 #ifdef WIN32
-	RHI* rhi = new D3D12RHI();
+	mRenderHardwareInterface = new D3D12RHI();
 #else
-	RHI& rhi = new PlayStationRHI();
+	mRenderHardwareInterface = new PlayStationRHI();
 #endif
 	RHIConfiguration rhiConfiguration = RHIConfiguration::Default();
-	rhi->Initialize(rhiConfiguration);
+	mRenderHardwareInterface->Initialize(rhiConfiguration);
         
-	RHISwapChainDesc swapChainDesc{};
+	RHISwapChainDesc swapChainDesc;
 	swapChainDesc.mFormat = Format::R8G8B8A8_UNORM;
 	swapChainDesc.mWidth = 0;
 	swapChainDesc.mHeight = 0;
@@ -123,12 +92,12 @@ void Renderer::initialize()
 	swapChainDesc.mIsFullScreen = false;
 	swapChainDesc.mMSAA = 1;
 	swapChainDesc.mTargetFramesPerSec = 0;   // use zero to force the native display's refresh rate. 
-	mSwapChain = rhi->RHICreateSwapChain(swapChainDesc);
+	mSwapChain = mRenderHardwareInterface->RHICreateSwapChain(swapChainDesc);
 
 	// Create depth-stencil buffer
 	RHITextureDesc depthTextureDesc = mSwapChain->GetBackBufferDesc(); 
 	depthTextureDesc.mFormat = Format::D24_UNORM_S8_UINT;
-	mDepthStencilBuffer = rhi->RHIAllocDepthStencil(depthTextureDesc).release();
+	mDepthStencilBuffer = mRenderHardwareInterface->RHIAllocDepthStencil(depthTextureDesc).release();
 	mGPUResources.emplace_back(mDepthStencilBuffer);
 
 	// Create render contexts, number of render contexts must not be larger than back buffer count.
@@ -138,19 +107,17 @@ void Renderer::initialize()
 	mRenderContexts.reset(new RenderContext[numBackBuffer]);
 	for (uint8_t i = 0; i < numBackBuffer; ++i)
 	{
-		rhi->CreateGraphicsContext(&pRenderContext);
+		mRenderHardwareInterface->CreateGraphicsContext(&pRenderContext);
 		mRenderContexts[i].mGraphicContext = std::unique_ptr<RHIGraphicsContext>(pRenderContext);
-		mRenderContexts[i].mFenceGPU = rhi->RHICreateFence();
+		mRenderContexts[i].mFenceGPU = mRenderHardwareInterface->RHICreateFence();
 		mRenderContexts[i].mFenceCPU = 0;
 	}
 
 	RHICopyContext* pCopyContext;
-	rhi->CreateCopyContext(&pCopyContext);
+	mRenderHardwareInterface->CreateCopyContext(&pCopyContext);
 	mCopyContext.reset(pCopyContext);
-	mCopyFenceGPU = rhi->RHICreateFence();
+	mCopyFenceGPU = mRenderHardwareInterface->RHICreateFence();
 	mCopyFenceCPU = 0;
-
-	mRenderHardwareInterface = rhi;
 
 	createBuiltinResources();
         
@@ -163,6 +130,13 @@ void Renderer::initialize()
 	preDepth.SetShader(it->second);
 	preDepth.SetBlend(false, false, BlendDesc::Disabled());
 
+	PipelineInitializer& skybox = mPipeStateInitializers[PSO_SKY_BOX];
+	skybox.SetBlend(false, false, BlendDesc::Disabled());
+	DepthTestDesc&& depthTest = DepthTestDesc::Default();
+	depthTest.mDepthWriteMask = 0;
+	skybox.SetDepthTest(depthTest);
+	skybox.SetCullMode(CullMode::FRONT);
+	skybox.SetStencilTest(StencilTestDesc::Disabled());
 
 	PipelineInitializer& shadow = mPipeStateInitializers[PSO_SHADOW];
 	shadow = PipelineInitializer::Default();
@@ -177,55 +151,30 @@ void Renderer::initialize()
 
 VertexBufferRef Renderer::allocVertexBuffer(uint32_t numVertices, uint32_t vertexSize)
 {
-	auto&& pVertexBuffer = mRenderHardwareInterface->RHIAllocVertexBuffer(vertexSize, numVertices);
-	if (mAvailableGPUResourceIds.empty())
-	{
-		mGPUResources.emplace_back(std::move(pVertexBuffer));
-		return mGPUResources.size() - 1;
-	}
-	uint64_t index = mAvailableGPUResourceIds.top();
-	mAvailableGPUResourceIds.pop();
-	mGPUResources[index] = std::move(pVertexBuffer);
-	return index;
+	RHIVertexBuffer* pVertexBuffer = mRenderHardwareInterface->RHIAllocVertexBuffer(vertexSize, numVertices).release();
+	return { allocGPUResource(pVertexBuffer), pVertexBuffer };
 }
 
 IndexBufferRef Renderer::allocIndexBuffer(uint32_t numIndices, Format indexFormat)
 {
-	auto&& pIndexBuffer = mRenderHardwareInterface->RHIAllocIndexBuffer(numIndices, indexFormat);
-	if (mAvailableGPUResourceIds.empty())
-	{
-		mGPUResources.emplace_back(std::move(pIndexBuffer));
-		return mGPUResources.size() - 1;
-	}
-	uint64_t index = mAvailableGPUResourceIds.top();
-	mAvailableGPUResourceIds.pop();
-	mGPUResources[index] = std::move(pIndexBuffer);
-	return index;
+	RHIIndexBuffer* pIndexBuffer = mRenderHardwareInterface->RHIAllocIndexBuffer(numIndices, indexFormat).release();
+	return { allocGPUResource(pIndexBuffer), pIndexBuffer };
 }
 
 TextureRef Renderer::allocTexture2D(Format format, uint32_t width, uint32_t height, uint8_t mipLevels)
 {
-	auto&& pTexture = mRenderHardwareInterface->RHIAllocTexture({ format, TextureDimension::TEXTURE2D, width, height, 1, mipLevels, 1, 0 });
-	if (mAvailableGPUResourceIds.empty())
-	{
-		mGPUResources.emplace_back(std::move(pTexture));
-		return mGPUResources.size() - 1;
-	}
-	uint64_t index = mAvailableGPUResourceIds.top();
-	mAvailableGPUResourceIds.pop();
-	mGPUResources[index] = std::move(pTexture);
-	return index;
+	RHINativeTexture* pTexture = mRenderHardwareInterface->RHIAllocTexture({ format, TextureDimension::TEXTURE2D, width, height, 1, mipLevels, 1, 0 }).release();
+	return { allocGPUResource(pTexture), pTexture };
 }
 
 void Renderer::updateVertexBuffer(const void* pData, uint64_t bufferSize, VertexBufferRef vertexBufferGPU, bool blockRendering)
 {
-	RHIVertexBuffer* pVertexBuffer = static_cast<RHIVertexBuffer*>(mGPUResources[vertexBufferGPU].get());
-	uint64_t size = std::min<uint64_t>(pVertexBuffer->GetBuffer()->BufferSize(), bufferSize);
+	uint64_t size = std::min<uint64_t>(vertexBufferGPU->GetBuffer()->BufferSize(), bufferSize);
 	auto&& stagingBuffer = mRenderHardwareInterface->RHIAllocStagingBuffer(size);
 	mRenderHardwareInterface->UpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
 	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
-	mCopyContext->UpdateBuffer(pVertexBuffer, stagingBuffer.get(), size, 0, 0);
+	mCopyContext->UpdateBuffer(vertexBufferGPU.mObject, stagingBuffer.get(), size, 0, 0);
 	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
 	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
@@ -235,13 +184,12 @@ void Renderer::updateVertexBuffer(const void* pData, uint64_t bufferSize, Vertex
 
 void Renderer::updateIndexBuffer(const void* pData, uint64_t bufferSize, IndexBufferRef indexBufferGPU, bool blockRendering)
 {
-	RHIIndexBuffer* pIndexBuffer = static_cast<RHIIndexBuffer*>(mGPUResources[indexBufferGPU].get());
-	uint64_t size = std::min<uint64_t>(pIndexBuffer->GetBuffer()->BufferSize(), bufferSize);
+	uint64_t size = std::min<uint64_t>(indexBufferGPU->GetBuffer()->BufferSize(), bufferSize);
 	auto&& stagingBuffer = mRenderHardwareInterface->RHIAllocStagingBuffer(size);
 	mRenderHardwareInterface->UpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
 	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
-	mCopyContext->UpdateBuffer(pIndexBuffer, stagingBuffer.get(), size, 0, 0);
+	mCopyContext->UpdateBuffer(indexBufferGPU.mObject, stagingBuffer.get(), size, 0, 0);
 	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
 	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
@@ -249,17 +197,15 @@ void Renderer::updateIndexBuffer(const void* pData, uint64_t bufferSize, IndexBu
 	mRenderContexts[mCurrentRenderContextIndex].mGraphicContext->InsertFence(mCopyFenceGPU.get(), mCopyFenceCPU);
 }
 
-void Renderer::updateTexture(const void* pData, TextureRef textureGPU, bool blockRendering)
+void Renderer::updateTexture(const void* pData, TextureRef textureGPU, uint8_t mipmap, bool blockRendering)
 {
-	RHINativeTexture* pTexture = static_cast<RHINativeTexture*>(mGPUResources[textureGPU].get());
-	const RHITextureDesc& desc = pTexture->GetDesc();
-	uint64_t size = desc.mWidth * desc.mHeight * desc.mDepth;
+	const RHITextureDesc& desc = textureGPU->GetDesc();
 	// TODO: support update multi-mips
-	std::unique_ptr<RHIStagingBuffer> pStagingBuffer = mRenderHardwareInterface->RHIAllocStagingTexture(size);
-	mRenderHardwareInterface->UpdateStagingBuffer(pStagingBuffer.get(), pData, 0, size);
+	std::unique_ptr<RHIStagingBuffer> pStagingBuffer = mRenderHardwareInterface->RHIAllocStagingTexture(desc, mipmap);
+	mRenderHardwareInterface->UpdateStagingTexture(pStagingBuffer.get(), desc, pData, mipmap);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
 	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
-	mCopyContext->UpdateTexture(pTexture, pStagingBuffer.get(), 0);
+	mCopyContext->UpdateTexture(textureGPU.mObject, pStagingBuffer.get(), 0);
 	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
 	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
@@ -367,6 +313,19 @@ void Renderer::render()
 
 Renderer::Renderer() = default;
 
+uint32_t Renderer::allocGPUResource(RHIObject* pObject)
+{
+	if (mAvailableGPUResourceIds.empty())
+	{
+		mGPUResources.emplace_back(pObject);
+		return mGPUResources.size() - 1;
+	}
+	uint32_t index = static_cast<uint32_t>(mAvailableGPUResourceIds.top());
+	mAvailableGPUResourceIds.pop();
+	mGPUResources[index] = std::unique_ptr<RHIObject>(pObject);
+	return index;
+}
+
 void Renderer::createBuiltinResources()
 {
 	const char* builtinShaderSources[] = {
@@ -383,11 +342,16 @@ void Renderer::beginFrame(RHIGraphicsContext* renderContext)
 	mRenderHardwareInterface->ResetGraphicsContext(renderContext);
 }
 
+void Renderer::skyboxPass(RHIGraphicsContext* pRenderContext, const MaterialInstance& skyboxMaterial,
+	const CameraConstants& cameraConstants)
+{
+
+}
+
 void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants)
 {
 	PipelineInitializer& preDepthPSO = mPipeStateInitializers[PSO_PRE_DEPTH];
-	TransformConstants transform{DirectX::XMMatrixIdentity(), cameraConstants.mView, cameraConstants.mProjection,
-	DirectX::XMMatrixIdentity(),cameraConstants.mViewInverse,  cameraConstants.mProjectionInverse };
+	TransformConstants transform{DirectX::XMMatrixIdentity(), DirectX::XMMatrixIdentity(), cameraConstants };
 	for (const auto& renderItem : renderItems)
 	{
 		pRenderContext->BeginDrawCall();
@@ -403,13 +367,13 @@ void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vecto
 
 		transform.mModel = renderItem.mModel;
 		transform.mModelInverse = renderItem.mModelInverse;
-		std::unique_ptr<RHIConstantBuffer> cbuffer = mRenderHardwareInterface->RHIAllocConstantBuffer(sizeof(TransformConstants));
+		std::unique_ptr<RHIConstantBuffer> cbuffer = pRenderContext->AllocConstantBuffer(sizeof(TransformConstants));
 		mRenderHardwareInterface->UpdateConstantBuffer(cbuffer.get(), &transform, 0, sizeof(TransformConstants));
 		pRenderContext->SetConstantBuffer(1, cbuffer.get());
 
-		RHIVertexBuffer* vertexBuffers[] = { static_cast<RHIVertexBuffer*>(mGPUResources[renderItem.mMeshData.mVertexBuffer].get()) };
+		RHIVertexBuffer* vertexBuffers[] = { renderItem.mMeshData.mVertexBuffer.mObject };
 		pRenderContext->SetVertexBuffers(vertexBuffers, 1);
-		pRenderContext->SetIndexBuffer(static_cast<RHIIndexBuffer*>(mGPUResources[renderItem.mMeshData.mIndexBuffer].get()));
+		pRenderContext->SetIndexBuffer(renderItem.mMeshData.mIndexBuffer.mObject);
 		const SubMesh* subMeshes = renderItem.mMeshData.mSubMeshes.get();
 		uint32_t numSubMeshes = renderItem.mMeshData.mSubMeshCount;
 		for (uint32_t i = 0; i < numSubMeshes; ++i)
@@ -424,8 +388,7 @@ void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vecto
 void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants)
 {
 	PipelineInitializer& opaquePSO = mPipeStateInitializers[PSO_OPAQUE];
-	TransformConstants transform{ DirectX::XMMatrixIdentity(), cameraConstants.mView, cameraConstants.mProjection,
-		DirectX::XMMatrixIdentity(),cameraConstants.mViewInverse,  cameraConstants.mProjectionInverse };
+	TransformConstants transform{ DirectX::XMMatrixIdentity(), DirectX::XMMatrixIdentity(), cameraConstants };
 	for (const auto& renderItem : renderItems)
 	{
 		pRenderContext->BeginDrawCall();
@@ -445,15 +408,16 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 		// update and bind constants(uniforms)
 		transform.mModel = renderItem.mModel;
 		transform.mModelInverse = renderItem.mModelInverse;
-		RHIConstantBuffer* pTransformCBuffer = mRenderHardwareInterface->RHIAllocConstantBuffer(sizeof(TransformConstants)).release();
+		RHIConstantBuffer* pTransformCBuffer = pRenderContext->AllocConstantBuffer(sizeof(TransformConstants)).release();
 		uint8_t numConstants = materialInstance.NumConstantBuffers() + 1;	// material constants + 1 transform constants
 		std::unique_ptr<RHIConstantBuffer*[]> cbuffers = std::make_unique<RHIConstantBuffer*[]>(numConstants);
 		cbuffers[0] = pTransformCBuffer;
+		// TODO: 
 		mRenderHardwareInterface->UpdateConstantBuffer(pTransformCBuffer, &transform, 0, sizeof(TransformConstants));
 		for (uint8_t i = 1; i < numConstants; ++i)
 		{
 			const Blob& constant = materialInstance.GetConstantBuffer(i - 1);
-			cbuffers[i] = mRenderHardwareInterface->RHIAllocConstantBuffer(constant.Size()).release();
+			cbuffers[i] = pRenderContext->AllocConstantBuffer(constant.Size()).release();
 			mRenderHardwareInterface->UpdateConstantBuffer(cbuffers[i], constant.Binary(), 0, constant.Size());
 		}
 		pRenderContext->SetConstantBuffers(1, numConstants, cbuffers.get());
@@ -464,17 +428,17 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 
 		// bind textures/instance buffer.
 		uint8_t numTextures = materialInstance.NumTextures();
-		std::unique_ptr<RHINativeTexture*[]> textures = std::make_unique<RHINativeTexture*[]>(numTextures);
 		for (uint8_t i = 0; i < numTextures; ++i)
 		{
-			textures[i] = static_cast<RHINativeTexture*>(mGPUResources[materialInstance.GetTexture(i)].get());
+			RHINativeTexture* pTexture = materialInstance.GetTexture(i).mObject;
+			if (!pTexture) continue;
+			pRenderContext->SetTexture(i, pTexture);
 		}
-		pRenderContext->SetTextures(0, numTextures, textures.get());
 
 		// bind vertex buffers and index buffer.
-		RHIVertexBuffer* vertexBuffers[] = { static_cast<RHIVertexBuffer*>(mGPUResources[renderItem.mMeshData.mVertexBuffer].get()) };
+		RHIVertexBuffer* vertexBuffers[] = { renderItem.mMeshData.mVertexBuffer.mObject };
 		pRenderContext->SetVertexBuffers(vertexBuffers, 1);
-		pRenderContext->SetIndexBuffer(static_cast<RHIIndexBuffer*>(mGPUResources[renderItem.mMeshData.mIndexBuffer].get()));
+		pRenderContext->SetIndexBuffer(renderItem.mMeshData.mIndexBuffer.mObject);
 
 		// append draw call
 		const SubMesh* subMeshes = renderItem.mMeshData.mSubMeshes.get();

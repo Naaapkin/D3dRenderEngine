@@ -59,7 +59,7 @@ void D3dRenderer::initialize(RendererSetting setting)
 {
     mRenderingThreadId = std::this_thread::get_id();
 
-    // ------------------Configuration---------------------
+    // ------------------mConfiguration---------------------
     mBackBufferFormat = setting.mBackBufferFormat;
     mDepthStencilFormat = setting.mDepthStencilFormat;
     mNumBackBuffers = setting.mNumBackBuffers;
@@ -183,7 +183,7 @@ void D3dRenderer::createRootSignature()
     blob->Release();
 }
 
-void D3dRenderer::registerShaders(std::vector<RHIShader*> shaders)
+void D3dRenderer::registerShaders(std::vector<RHISubShader*> shaders)
 {
     for (auto& shader : shaders)
     {
@@ -193,7 +193,7 @@ void D3dRenderer::registerShaders(std::vector<RHIShader*> shaders)
         psoDesc.DS = {shader->dsBinary().binary(), shader->dsBinary().size() * sizeof(byte) };
         psoDesc.GS = {shader->gsBinary().binary(), shader->gsBinary().size() * sizeof(byte) };
         psoDesc.PS = {shader->psBinary().binary(), shader->psBinary().size() * sizeof(byte) };
-        const auto& inputElems = RHIShader::BuildInputElements(*shader);
+        const auto& inputElems = RHISubShader::BuildInputElements(*shader);
         D3D12_INPUT_ELEMENT_DESC* d3dInputElems = new D3D12_INPUT_ELEMENT_DESC[inputElems.size()];
         for (int i = 0; i < inputElems.size(); ++i)
         {
@@ -339,7 +339,7 @@ void D3dRenderer::onRender()
             nativeCmdList->SetGraphicsRootDescriptorTable(1, mCbSrUaDescHeap->gpuHandle(sCalcObjectCbvOffset(mCpuWorkingPageIdx)));
             uint64_t objectConstantsStart = GraphicSetting::gNumPassConstants + GraphicSetting::gNumPerObjectConstants * i;
             const auto& renderItem = renderList.mRenderItems[i];
-            const auto& materialConstants = renderItem.mMaterial->mConstants;
+            const auto& materialConstants = renderItem.mMaterial->mConstant;
             // copy all constants data to dynamic buffers that bound to the registers through descriptors heap.
             // register 1 is bound to per-object transform data
             auto& transformBuffer = mRenderData[mCpuWorkingPageIdx].mCBuffers[objectConstantsStart];

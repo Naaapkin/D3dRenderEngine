@@ -35,7 +35,7 @@ public:
     virtual std::unique_ptr<RHISwapChain>   RHICreateSwapChain(const RHISwapChainDesc& desc) = 0;
     //virtual std::unique_ptr<RHINativeBuffer>      RHIAllocBuffer(uint64_t size) = 0;
     virtual std::unique_ptr<RHIStagingBuffer> RHIAllocStagingBuffer(uint64_t size) = 0;
-    virtual std::unique_ptr<RHIStagingBuffer> RHIAllocStagingTexture(uint64_t size) = 0;
+    virtual std::unique_ptr<RHIStagingBuffer> RHIAllocStagingTexture(const RHITextureDesc& desc, uint8_t mipmap) = 0;
     virtual std::unique_ptr<RHIConstantBuffer> RHIAllocConstantBuffer(uint64_t size) = 0;
     virtual std::unique_ptr<RHINativeTexture>     RHIAllocTexture(RHITextureDesc desc) = 0;
     virtual std::unique_ptr<RHIDepthStencil> RHIAllocDepthStencil(RHITextureDesc desc) = 0;
@@ -46,6 +46,7 @@ public:
     // virtual std::unique_ptr<RHIFrameBuffer> RHICreateRenderTargetBuffer(RHINativeTexture* rt) = 0;
     virtual std::unique_ptr<RHIFence>       RHICreateFence() = 0;
     virtual void UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
+    virtual void UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) = 0;
     virtual void UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
     virtual void CreateGraphicsContext(RHIGraphicsContext** ppContext) = 0;
     virtual void CreateCopyContext(RHICopyContext** ppContext) = 0;

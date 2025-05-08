@@ -8,37 +8,14 @@
 #include "PC/D3D12RHI.h"
 #include "Engine/pch.h"
 
-class RenderTargetHandle
+struct PassConstants
 {
-public:
-    RenderTargetRef GetRenderTargetRef() const;
-    uint32_t GetWidth() const;
-    uint32_t GetHeight() const;
-    Format GetFormat() const;
-    bool MSAAEnabled() const;
-    RenderTargetHandle();
-    RenderTargetHandle(RenderTargetRef renderTargetRef, const RHITextureDesc& desc);;
-    
-private:
-    RenderTargetRef mRTRef;
-    RHITextureDesc mDesc;
-};
+    LightConstant mLightConstant;
+    FogConstant mFogConstant;
+    Float4 mTime; // deltaTime, time, sin(time), cos(time)
 
-class DepthStencilHandle
-{
-public:
-    DepthStencilRef GetRenderTargetRef() const;
-    uint32_t GetWidth() const;
-    uint32_t GetHeight() const;
-    Format GetFormat() const;
-    bool MSAAEnabled() const;
-    bool MipmapEnabled() const;
-    DepthStencilHandle();
-    DepthStencilHandle(RenderTargetRef depthStencilRef, const RHITextureDesc& desc);;
-    
-private:
-    DepthStencilRef mDSRef;
-    RHITextureDesc mDesc;   // cache, for fast validation.
+    // these should be in per-camera constants
+    Float4 mViewport; // width, height, preserved, preserved
 };
 
 class Renderer : public Singleton<Renderer>
@@ -49,7 +26,7 @@ public:
     static std::unique_ptr<Material> createMaterial(RHIShader* pShader);
 
     // single thread only to guarantee the id generation.
-    static std::unique_ptr<MaterialInstance> createMaterialInstance(const Material& material);
+    std::unique_ptr<MaterialInstance> createMaterialInstance(const Material& material);
 
     void initialize();
 
@@ -65,13 +42,12 @@ public:
         mRenderLists.reserve(mRenderLists.size() + numRenderLists);
         mRenderLists.insert(mRenderLists.end(), renderLists.get(), renderLists.get() + numRenderLists);
     }
-
     VertexBufferRef allocVertexBuffer(uint32_t numVertices, uint32_t vertexSize);
     IndexBufferRef allocIndexBuffer(uint32_t numIndices, Format indexFormat);
     TextureRef allocTexture2D(Format format, uint32_t width, uint32_t height, uint8_t mipLevels);
     void updateVertexBuffer(const void* pData, uint64_t bufferSize, VertexBufferRef vertexBufferGPU, bool blockRendering = true);
     void updateIndexBuffer(const void* pData, uint64_t bufferSize, IndexBufferRef indexBufferGPU, bool blockRendering = true);
-    void updateTexture(const void* pData, TextureRef textureGPU, bool blockRendering = true);
+    void updateTexture(const void* pData, TextureRef textureGPU, uint8_t mipmap, bool blockRendering = true);
 
     //void releaseMaterialInstance(uint64_t instanceId);
     void render();
@@ -82,8 +58,22 @@ public:
     NON_MOVEABLE(Renderer);
     
 private:
+    uint32_t allocGPUResource(RHIObject* pObject);
+    //struct RHIRefCounter
+    //{
+	   // RHIRefCounter(std::unique_ptr<RHIObject> object, uint32_t refCount)
+		  //  : mObject(std::move(object)),
+		  //    mRefCount(refCount)
+	   // {
+	   // }
+
+	   // std::unique_ptr<RHIObject> mObject;
+    //    uint32_t mRefCount;
+    //};
     void createBuiltinResources();
     void beginFrame(RHIGraphicsContext* renderContext);
+    // sphere mode only now
+    void skyboxPass(RHIGraphicsContext* pRenderContext, const MaterialInstance& skyboxMaterial, const CameraConstants& cameraConstants);
     void depthPrePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
     void opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
     void postRender();
@@ -110,6 +100,7 @@ private:
     enum PsoPresets : uint16_t
     {
         PSO_PRE_DEPTH,
+        PSO_SKY_BOX,
         PSO_SHADOW,
         PSO_OPAQUE,
         PSO_TRANSPARENT,
@@ -118,9 +109,13 @@ private:
     std::vector<PipelineInitializer> mPipeStateInitializers;
 
     std::vector<RenderList> mRenderLists;
+
+    // ----------------Pass Constants----------------
+    std::unique_ptr<PassConstants> mPassConstants;
+    // ----------------------------------------------
     
     // -------------GPU Resource Manager-------------
-    std::vector<std::unique_ptr<RHIObject>> mGPUResources;
+    std::deque<std::unique_ptr<RHIObject>> mGPUResources;
     std::stack<uint64_t>    mAvailableGPUResourceIds;
     // ----------------------------------------------
     

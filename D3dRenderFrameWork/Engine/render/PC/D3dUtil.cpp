@@ -124,4 +124,17 @@ UComPtr<ID3DBlob> D3D12Compile(const Blob& blob, const char* entry, const char* 
     }
     return { bin };
 }
+
+void CopyTextureDataWithPitchAlignment(void* pDest, const void* pSrc, uint32_t rowSize, uint32_t height)
+{
+	const uint8_t* src = static_cast<const uint8_t*>(pSrc);
+	uint8_t* dest = static_cast<uint8_t*>(pDest);
+
+	uint32_t rowPitch = (rowSize + D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1) & ~(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1);
+
+	for (uint32_t y = 0; y < height; ++y)
+	{
+		memcpy(dest + y * rowPitch, src + y * rowSize, rowSize);
+	}
+}
 #endif

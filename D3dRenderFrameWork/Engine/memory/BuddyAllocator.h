@@ -28,21 +28,6 @@ public:
     bool Free(uint64_t offset) const;
     BuddyAllocator();
 
-    // TODO: locate the node by offset
-    // bool Reset(uint64_t offset) const
-    // {
-    //     Node* node = mRoot.get();
-    //     uint64_t signPosts = offset >> std::_Floor_of_log_2(mBlockSize);
-    //     for (int i = mMaxDepth - 1; i >= 0; i--)
-    //     {
-    //         if (!node || node->mIsFree) return false;
-    //         node = signPosts & (1 << i) ? node->mRight.get() : node->mLeft.get(); 
-    //     }
-    //     if (!node || node->mIsFree) return false;
-    //     node->mIsFree = true;
-    //     
-    // }
-
 private:
     static Node* AllocateRecursive(Node* node, uint64_t targetSize);
     static bool ForceFreeRecursive(Node* node, uint64_t offset);

@@ -1,31 +1,8 @@
 #pragma once
+#include "BuiltinShaderDef.h"
 #include "Engine/pch.h"
 #include "Engine/render/MeshData.h"
 #include "Engine/render/Material.h"
-
-struct CameraConstants
-{
-    DirectX::XMMATRIX mView;
-    DirectX::XMMATRIX mProjection;
-    DirectX::XMMATRIX mViewInverse;
-    DirectX::XMMATRIX mProjectionInverse;
-};
-
-struct InstanceData
-{
-    DirectX::XMMATRIX mModel;
-    DirectX::XMMATRIX mModelInverse;
-};
-
-struct alignas(256) TransformConstants
-{
-    DirectX::XMMATRIX mModel;
-    DirectX::XMMATRIX mView;
-    DirectX::XMMATRIX mProjection;
-    DirectX::XMMATRIX mModelInverse;
-    DirectX::XMMATRIX mViewInverse;
-    DirectX::XMMATRIX mProjectionInverse;
-};
 
 // only support forward render path currently
 enum class RenderPass : uint8_t
@@ -43,9 +20,9 @@ enum class RenderPass : uint8_t
 
 struct RenderItem
 {
-    DirectX::XMMATRIX mModel = DirectX::XMMatrixIdentity();   // TODO: Support sub mesh
-    DirectX::XMMATRIX mModelInverse = DirectX::XMMatrixIdentity();
-	MeshData mMeshData{MAXUINT64, MAXUINT64 , 0, 0, nullptr, 0};
+    Matrix4x4 mModel = DirectX::XMMatrixIdentity();   // TODO: Support sub mesh
+    Matrix4x4 mModelInverse = DirectX::XMMatrixIdentity();
+    MeshData mMeshData{};
     MaterialInstance* mMaterial = nullptr;
 };
 
@@ -53,6 +30,7 @@ struct RenderList final
 {
     //FrameBufferRef mFrameBuffer;  // nullptr to force rendering to screen.
     CameraConstants mCameraConstants;
+    Blob* mPassConstant;
     uint8_t mStencilValue;
     Float4 mBackGroundColor;
     std::vector<RenderItem> mOpaqueList;

@@ -2,6 +2,7 @@
 #include "RHIDescriptors.h"
 #include "Engine/pch.h"
 
+union Float4;
 struct PipelineInitializer;
 
 class RHIObject
@@ -152,6 +153,9 @@ public:
 class RHIGraphicsContext : public RHIObject
 {
 public:
+    // allocate a small temp cbuffer which is valid only in this frame.
+    // usually used for constant buffers that will update very frequently.
+    virtual std::unique_ptr<RHIConstantBuffer> AllocConstantBuffer(uint16_t size) = 0;
     virtual void UpdateBuffer(RHIBufferWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint64_t size, uint64_t dstStart, uint64_t srcStart) = 0;
     virtual void UpdateTexture(RHITextureWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint8_t mipmap) = 0;
     virtual void CopyTexture(RHITextureWrapper* pDst, RHITextureWrapper* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth) = 0;
@@ -166,7 +170,7 @@ public:
     virtual void SetScissorRect(Rect* scissorRects, uint32_t numScissorRects) = 0;
     virtual void SetRenderTargetsAndDepthStencil(RHIRenderTarget** renderTargets, uint32_t numRenderTargets, RHIDepthStencil* depthStencilTarget) = 0;
     virtual void SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers) = 0;
-    virtual void SetIndexBuffer(RHIIndexBuffer* pIndexBuffer) = 0;
+    virtual void SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer) = 0;
     virtual void DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex) = 0;
     virtual void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount) = 0;
     virtual void EndDrawCalls() = 0;

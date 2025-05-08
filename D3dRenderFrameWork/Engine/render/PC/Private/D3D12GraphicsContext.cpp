@@ -1,3 +1,4 @@
+#include "Engine/math/math.h"
 #ifdef WIN32
 #include "D3D12GraphicsContext.h"
 
@@ -16,8 +17,13 @@ void D3D12GraphicsContext::Initialize(D3D12CommandContext* pGraphicCommandContex
     mResourceStateTracker.reset(new ResourceStateTracker());
 }
 
+std::unique_ptr<RHIConstantBuffer> D3D12GraphicsContext::AllocConstantBuffer(uint16_t size)
+{
+    return std::make_unique<RHIConstantBuffer>(mCommandContext->AllocFrameConstantBuffer(size));
+}
+
 void D3D12GraphicsContext::UpdateBuffer(RHIBufferWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint64_t size, uint64_t dstStart,
-                                      uint64_t srcStart)
+                                        uint64_t srcStart)
 {
     ASSERT(pDst && pStagingBuffer, TEXT("invalid destination buffer or staging buffer."));
     D3D12Buffer* pNativeDstBuffer = static_cast<D3D12Buffer*>(pDst->GetBuffer());
@@ -220,7 +226,7 @@ void D3D12GraphicsContext::SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uin
     delete[] vbvs;
 }
 
-void D3D12GraphicsContext::SetIndexBuffer(RHIIndexBuffer* pIndexBuffer)
+void D3D12GraphicsContext::SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer)
 {
     D3D12IndexBuffer* buffer = static_cast<D3D12IndexBuffer*>(pIndexBuffer->GetBuffer());
     const D3D12_INDEX_BUFFER_VIEW ibv = buffer->GetIndexBufferView();
@@ -361,10 +367,9 @@ void D3D12CopyContext::UpdateTexture(RHINativeTexture* pDst, RHIStagingBuffer* p
     {
         mCommandList->ResourceBarrier(barriers.size(), barriers.data());
     }
-
     D3D12CommandContext::CopyTexture(mCommandList, pDstResource,
-		mStagingBufferPool,
-		TextureCopyLocation::Texture2DLocation(mipmap, 1/* TODO: numMipmaps*/), 
+        mStagingBufferPool,
+        TextureCopyLocation::Texture2DLocation(mipmap, 1/* TODO: numMipmaps*/),
         TextureCopyLocation::BufferLocation(pNativeStagingBuffer->Offset()));
 }
 

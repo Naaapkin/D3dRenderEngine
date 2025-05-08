@@ -74,24 +74,33 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     material->mStencilTest = StencilTestDesc::Default();
     material->mDepthTest = DepthTestDesc::Default();
     material->mBlend = BlendDesc::Color();
-	std::unique_ptr<MaterialInstance> materialInstance = Renderer::createMaterialInstance(*material);
+	std::unique_ptr<MaterialInstance> materialInstance = renderer.createMaterialInstance(*material);
 
     // 准备CPU资源
 	Mesh cubeMesh = MeshPrototype::CreateCubeMesh();
     const std::vector<float>& vertexBufferCPU = cubeMesh.getFilteredVertexBuffer();
 	const std::vector<uint32_t>& indexBufferCPU = cubeMesh.indices();
-    byte* cubeTexCPU = new byte[2 * 2];
+    byte* cubeTexCPU = new byte[2 * 2 * 4]{255, 255, 255, 255, 255, 255, 255, 255 , 255, 255, 255, 255 , 255, 255, 255, 255};
 
     // 分配并上传GPU资源
-    TextureRef cubeTexGPU = renderer.allocTexture2D(Format::R8G8B8A8_UINT, 2, 2, 1);
+    TextureRef cubeTexGPU = renderer.allocTexture2D(Format::R8G8B8A8_UNORM, 2, 2, 1);
     VertexBufferRef vertexBufferGPU = renderer.allocVertexBuffer(vertexBufferCPU.size() >> 3, sizeof(float[3 + 3 + 2]));
 	IndexBufferRef indexBufferGPU = renderer.allocIndexBuffer(indexBufferCPU.size(), Format::R32_UINT);
     // update synchronously
     renderer.updateVertexBuffer(vertexBufferCPU.data(), vertexBufferCPU.size() * sizeof(float), vertexBufferGPU, true);
     renderer.updateIndexBuffer(indexBufferCPU.data(), indexBufferCPU.size() * sizeof(uint32_t), indexBufferGPU, true);
-    renderer.updateTexture(cubeTexCPU, cubeTexGPU, true);
+    renderer.updateTexture(cubeTexCPU, cubeTexGPU, 0, true);
 
     materialInstance->SetTexture(0, TextureDimension::TEXTURE2D, cubeTexGPU);
+
+    LightConstant lightConstants{};
+    lightConstants.mAmbientLight = { 0, 0, 0 };
+    lightConstants.mAmbientIntensity = 1;
+    lightConstants.mMainLightColor = { 0.7f, 0.9f, 0.85f };
+    lightConstants.mMainLightDir = { 0, -1, 0, 1 };
+    lightConstants.mShadowColor = { 0.2, 0.2, 0.2, 0.2 };
+
+    Blob lightConstantBuffer{ &lightConstants, sizeof(LightConstant) };
 
     const std::vector<SubMesh> subMeshes = cubeMesh.subMeshes();
     RenderItem renderItem{};
@@ -147,7 +156,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
 
         std::unique_ptr<RenderList[]> renderLists;
-        renderLists.reset(new RenderList[]{ renderList });
+        renderLists.reset(new RenderList[1]{ renderList });
         renderer.appendRenderLists(std::move(renderLists), 1);
         renderer.render();
     }

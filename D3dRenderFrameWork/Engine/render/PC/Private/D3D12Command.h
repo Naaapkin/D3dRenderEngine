@@ -1,4 +1,5 @@
 #pragma once
+#ifdef WIN32
 #include "Engine/pch.h" 
 #include "Engine/render/RHICommand.h"
 
@@ -83,13 +84,11 @@ private:
 class D3D12CommandCopyTextureRegion : public D3D12Command
 {
 public:
-    void SetCopyParameters(ID3D12Resource* pSource, ID3D12Resource* pDestination, const D3D12_BOX& sourceBox,
+    void SetCopyParameters(const D3D12_BOX& sourceBox,
         const D3D12_TEXTURE_COPY_LOCATION& sourceLocation,
         const D3D12_TEXTURE_COPY_LOCATION& destinationLocation,
         uint32_t dstX, uint32_t dstY, uint32_t dstZ)
     {
-        mSource = pSource;
-        mDestination = pDestination;
         mSourceLocation = sourceLocation;
         mDestinationLocation = destinationLocation;
         mSourceBox = sourceBox;
@@ -109,8 +108,6 @@ public:
     ~D3D12CommandCopyTextureRegion() override = default;
 
 private:
-    ID3D12Resource* mSource;
-    ID3D12Resource* mDestination;
     D3D12_BOX mSourceBox;
     uint32_t mDstX;
     uint32_t mDstY;
@@ -240,18 +237,18 @@ class D3D12CommandBindVertexBuffer : public D3D12Command
 public:
     D3D12CommandBindVertexBuffer() = default;
 
-    void SetVertexBuffers(const D3D12_VERTEX_BUFFER_VIEW* pVertexBufferView, uint32_t numVertexBuffers)
+    void SetVertexBuffers(const D3D12_VERTEX_BUFFER_VIEW& vertexBufferView)
     {
-        mVBVs.assign(pVertexBufferView, pVertexBufferView + numVertexBuffers);
+        mVBV = vertexBufferView;
     }
 
     void Execute(ID3D12GraphicsCommandList* pCommandList) override
     {
-        pCommandList->IASetVertexBuffers(0, mVBVs.size(), mVBVs.data());
+        pCommandList->IASetVertexBuffers(0, 1, &mVBV);
     }
     
 private:
-    std::vector<D3D12_VERTEX_BUFFER_VIEW> mVBVs;
+    D3D12_VERTEX_BUFFER_VIEW mVBV;
 };
 
 class D3D12CommandBindIndexBuffer : public D3D12Command
@@ -273,32 +270,124 @@ private:
     D3D12_INDEX_BUFFER_VIEW mIBV;
 };
 
-class D3D12CommandDrawIndexedInstanced : public D3D12Command
+class D3D12CommandSetGraphicsRootDescriptorTable : public D3D12Command
 {
 public:
-    D3D12CommandDrawIndexedInstanced() = default;
+    void SetDescriptorHandle(uint8_t parameterIndex, D3D12_GPU_DESCRIPTOR_HANDLE handle)
+    {
+        mParameterIndex = parameterIndex;
+        mHandle = handle;
+    }
+    
+    void Execute(ID3D12GraphicsCommandList* pCommandList) override
+    {
+        pCommandList->SetGraphicsRootDescriptorTable(mParameterIndex, mHandle);
+    }
 
+    D3D12CommandSetGraphicsRootDescriptorTable() = default;
+private:
+    uint8_t mParameterIndex;
+    D3D12_GPU_DESCRIPTOR_HANDLE mHandle;
+};
+
+class D3D12CommandSetGraphicsRootConstantBufferView : public D3D12Command
+{
+public:
+    void SetAddress(uint8_t parameterIndex, D3D12_GPU_VIRTUAL_ADDRESS address)
+    {
+        mParameterIndex = parameterIndex;
+        mAddress = address;
+    }
+    
+    void Execute(ID3D12GraphicsCommandList* pCommandList) override
+    {
+        pCommandList->SetGraphicsRootConstantBufferView(mParameterIndex, mAddress);
+    }
+
+    D3D12CommandSetGraphicsRootConstantBufferView() = default;
+private:
+    uint8_t mParameterIndex;
+    D3D12_GPU_VIRTUAL_ADDRESS mAddress;
+};
+
+class D3D12CommandSetPipelineState : public D3D12Command
+{
+public:
     void SetPipelineState(ID3D12PipelineState* pPipelineState)
     {
         mPipelineState = pPipelineState;
     }
+    
+    void Execute(ID3D12GraphicsCommandList* pCommandList) override
+    {
+        pCommandList->SetPipelineState(mPipelineState);
+    }
+    
+    D3D12CommandSetPipelineState() = default;
+    
+private:
+    ID3D12PipelineState* mPipelineState;
+};
 
+class D3D12CommandNative : public D3D12Command
+{
+public:
+    using Operation = std::function<void(ID3D12GraphicsCommandList* pCommandList)>;
+
+    void SetBind(Operation&& bind)
+    {
+        mOperation = std::move(bind);
+    }
+
+    void Execute(ID3D12GraphicsCommandList* pCommandList) override
+    {
+        mOperation(pCommandList);
+    }
+    
+private:
+    Operation mOperation;
+};
+
+class D3D12CommandDrawIndexedInstanced : public D3D12Command
+{
+public:
     void SetSubMesh(uint32_t indexPerInstance, uint32_t startIndexLocation, uint32_t instanceCount)
     {
         mIndexPerInstance = indexPerInstance;
         mStartIndexLocation = startIndexLocation;
         mInstanceCount = instanceCount;
     }
+    //
+    // void SetConstantBuffers(std::pair<uint8_t, D3D12_GPU_DESCRIPTOR_HANDLE>* bindings, uint32_t numBindings)
+    // {
+    //     mCBufferBindings.assign(bindings, bindings + numBindings);
+    // }
+    //
+    // VOID SetShaderResources(std::pair<uint8_t, D3D12_GPU_DESCRIPTOR_HANDLE>* bindings, uint32_t numBindings)
+    // {
+    //     mShaderResourceBindings.assign(bindings, bindings + numBindings);
+    // }
     
     void Execute(ID3D12GraphicsCommandList* pCommandList) override
     {
-        pCommandList->SetPipelineState(mPipelineState);
+        // for (const auto& binding : mCBufferBindings)
+        // {
+        //     pCommandList->SetOnlineDescriptorHeap(binding.first, binding.second);
+        // }
+        // for (const auto& binding : mShaderResourceBindings)
+        // {
+        //     pCommandList->SetOnlineDescriptorHeap(binding.first, binding.second);
+        // }
         pCommandList->DrawIndexedInstanced(mIndexPerInstance, mInstanceCount, mStartIndexLocation, 0, 0);
     }
+    
+    D3D12CommandDrawIndexedInstanced() = default;
 
 private:
+    // std::vector<std::pair<uint8_t, D3D12_GPU_DESCRIPTOR_HANDLE>> mCBufferBindings;
+    // std::vector<std::pair<uint8_t, D3D12_GPU_DESCRIPTOR_HANDLE>> mShaderResourceBindings;
     uint32_t mIndexPerInstance;
     uint32_t mInstanceCount;
     uint32_t mStartIndexLocation;
-    ID3D12PipelineState* mPipelineState;
 };
+#endif

@@ -246,24 +246,6 @@ struct Rect
     int32_t mBottom;
 };
 
-union Float4
-{
-    struct
-    {
-        float r, g, b, a;
-    };
-
-    struct
-    {
-        float x, y, z, w;
-    };
-
-    struct
-    {
-        float u, v;
-    };
-};
-
 struct TextureCopyLocation
 {
     uint32_t mMipmap;
@@ -525,6 +507,14 @@ struct StencilTestDesc
             StencilOperation::KEEP, CompareFunction::ALWAYS };
         return defaultStencil;
     }
+
+    static StencilTestDesc Disabled()
+    {
+        static StencilTestDesc defaultStencil = { false, 0, 0, StencilOperation::KEEP, StencilOperation::KEEP,
+            StencilOperation::KEEP, CompareFunction::ALWAYS, StencilOperation::KEEP, StencilOperation::KEEP,
+            StencilOperation::KEEP, CompareFunction::ALWAYS };
+        return defaultStencil;
+    }
 };
 
 struct BlendDesc
@@ -593,3 +583,70 @@ struct GraphicPipelineStateDesc
         return desc;
     } 
 };
+
+static uint16_t GetFormatStride(Format format)
+{
+    switch (format)
+    {
+    case Format::R8_UNORM:
+    case Format::R8_SNORM:
+    case Format::R8_UINT:
+    case Format::R8_SINT:
+        return 1; // 1 byte per pixel (8 bits)
+
+    case Format::R8G8_UNORM:
+    case Format::R8G8_SNORM:
+    case Format::R8G8_UINT:
+    case Format::R8G8_SINT:
+    case Format::R16_UNORM:
+    case Format::R16_SNORM:
+    case Format::R16_UINT:
+    case Format::R16_SINT:
+    //case Format::R16_FLOAT:
+        return 2; // 2 bytes per pixel (16 bits)
+
+    case Format::R8G8B8A8_UNORM:
+    case Format::R8G8B8A8_UNORM_SRGB:
+    case Format::R8G8B8A8_SNORM:
+    case Format::R8G8B8A8_UINT:
+    case Format::R8G8B8A8_SINT:
+    case Format::R16G16_UNORM:
+    case Format::R16G16_SNORM:
+    case Format::R16G16_UINT:
+    case Format::R16G16_SINT:
+    //case Format::R16G16_FLOAT:
+    case Format::R32_TYPELESS:
+    case Format::R32_UINT:
+    case Format::R32_SINT:
+    case Format::R32_FLOAT:
+    case Format::D24_UNORM_S8_UINT:
+        return 4; // 4 bytes per pixel (32 bits)
+
+    case Format::R16G16B16A16_UNORM:
+    case Format::R16G16B16A16_SNORM:
+    case Format::R16G16B16A16_UINT:
+    case Format::R16G16B16A16_SINT:
+    //case Format::R16G16B16A16_FLOAT:
+    case Format::R32G32_TYPELESS:
+    case Format::R32G32_UINT:
+    case Format::R32G32_SINT:
+    case Format::R32G32_FLOAT:
+        return 8; // 8 bytes per pixel (64 bits)
+
+    //case Format::R32G32B32_TYPELESS:
+    case Format::R32G32B32_UINT:
+    case Format::R32G32B32_SINT:
+    case Format::R32G32B32_FLOAT:
+        return 12; // 12 bytes per pixel (96 bits)
+
+    case Format::R32G32B32A32_TYPELESS:
+    case Format::R32G32B32A32_UINT:
+    case Format::R32G32B32A32_SINT:
+    case Format::R32G32B32A32_FLOAT:
+        return 16; // 16 bytes per pixel (128 bits)
+
+    case Format::UNKNOWN:
+    default:
+        return 0; // Unknown format
+    }
+}

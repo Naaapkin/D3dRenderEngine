@@ -152,9 +152,10 @@ inline void D3D12PipelineStateManager::InitD3D12PipelineStateDesc(ID3D12RootSign
     d3d12Desc.BlendState.IndependentBlendEnable = false;
 
     auto& depthTest = d3d12Desc.DepthStencilState;
+    depthTest = CD3DX12_DEPTH_STENCIL_DESC{ D3D12_DEFAULT };
     depthTest.DepthEnable = psoDesc.mOptions >> 5;
     depthTest.StencilEnable = (psoDesc.mOptions & 0b010000) >> 4;
-    depthTest.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    depthTest.DepthWriteMask = psoDesc.mRenderTargetWriteMask == ColorMask::ALL ? D3D12_DEPTH_WRITE_MASK_ALL : D3D12_DEPTH_WRITE_MASK_ALL;
 
     if (depthTest.StencilEnable)
     {

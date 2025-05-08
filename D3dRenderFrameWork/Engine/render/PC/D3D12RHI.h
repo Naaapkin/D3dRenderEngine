@@ -7,7 +7,7 @@
 class D3D12Fence;
 class D3D12RingBufferAllocator;
 class D3D12PipelineStateManager;
-class D3D12BuddyCBufferAllocator;
+class D3D12BuddyBufferAllocator;
 class RingDescriptorAllocator;
 class BlockDescriptorAllocator;
 class D3D12CommandObjectPool;
@@ -18,7 +18,7 @@ public:
     void Initialize(const RHIConfiguration& configuration) override;
     std::unique_ptr<RHIShader>          RHICompileShader(const Blob& binary, ShaderType activeTypes, const std::string* path = nullptr) override;
     std::unique_ptr<RHIStagingBuffer>   RHIAllocStagingBuffer(uint64_t size) override;
-    std::unique_ptr<RHIStagingBuffer>   RHIAllocStagingTexture(uint64_t size) override;
+    std::unique_ptr<RHIStagingBuffer>   RHIAllocStagingTexture(const RHITextureDesc& desc, uint8_t mipmap) override;
     std::unique_ptr<RHIConstantBuffer>  RHIAllocConstantBuffer(uint64_t size) override;
     std::unique_ptr<RHINativeTexture>   RHIAllocTexture(RHITextureDesc desc) override;
     std::unique_ptr<RHIDepthStencil>    RHIAllocDepthStencil(RHITextureDesc desc) override;
@@ -31,6 +31,7 @@ public:
     std::unique_ptr<RHISwapChain>       RHICreateSwapChain(const RHISwapChainDesc& desc) override;
 
     void UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
+    void UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) override;
     void UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
     void CreateGraphicsContext(RHIGraphicsContext** ppContext) override;
     void CreateCopyContext(RHICopyContext** ppContext) override;
@@ -87,7 +88,8 @@ private:
     std::unique_ptr<BlockDescriptorAllocator>       mDSVAllocator;
     std::unique_ptr<RingDescriptorAllocator>        mOnlineCBVSRVUAVAllocator;
 
-    std::unique_ptr<D3D12RingBufferAllocator>       mConstantBufferAllocator;
+    std::unique_ptr<D3D12RingBufferAllocator>       mRingCBufferAllocator;
+    std::unique_ptr<D3D12BuddyBufferAllocator>      mBuddyCBufferAllocator;
     std::unique_ptr<D3D12RingBufferAllocator>       mStagingBufferAllocator;
     std::unique_ptr<D3D12CommandObjectPool>         mCommandObjectPool;
     std::unique_ptr<D3D12RootSignatureManager>      mRootSignatureManager;

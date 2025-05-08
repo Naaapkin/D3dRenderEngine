@@ -121,6 +121,7 @@
     <ClInclude Include="Engine\memory\RingAllocator.h" />
     <ClInclude Include="Engine\pch.h" />
     <ClInclude Include="Engine\render\Blob.h" />
+    <ClInclude Include="Engine\render\BuiltinShaderDef.h" />
     <ClInclude Include="Engine\render\DynamicRHI.h" />
     <ClInclude Include="Engine\render\Material.h" />
     <ClInclude Include="Engine\render\MeshData.h" />
@@ -291,6 +292,9 @@
   <ItemGroup>
     <Content Include="Assets\Configurations\config.ini" />
     <None Include="Assets\Configurations\shader.manif" />
+    <None Include="Assets\Shaders\source\skybox.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

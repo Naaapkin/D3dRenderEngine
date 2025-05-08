@@ -7,7 +7,7 @@ struct MeshData
 {
 	MeshData() = default;
 
-	MeshData(VertexBufferRef vertexBuffer, VertexBufferRef indexBuffer, uint32_t vertexCount,
+	MeshData(VertexBufferRef vertexBuffer, IndexBufferRef indexBuffer, uint32_t vertexCount,
 		uint32_t indexCount, const SubMesh* subMeshes, uint8_t subMeshCount)
 		: mVertexBuffer(vertexBuffer),
 		  mIndexBuffer(indexBuffer),
@@ -50,7 +50,7 @@ struct MeshData
 	~MeshData() = default;
 
 	VertexBufferRef mVertexBuffer;
-	VertexBufferRef mIndexBuffer;
+	IndexBufferRef mIndexBuffer;
 	uint32_t mVertexCount;
 	uint32_t mIndexCount;
 	std::unique_ptr<SubMesh[]> mSubMeshes;

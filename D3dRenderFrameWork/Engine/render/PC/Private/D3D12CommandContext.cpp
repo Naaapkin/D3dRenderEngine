@@ -1,3 +1,5 @@
+#include "Engine/render/PC/Native/D3D12ConstantBufferAllocator.h"
+#include "Engine/render/PC/Resource/D3D12Resources.h"
 #ifdef WIN32
 #include "D3D12CommandContext.h"
 
@@ -77,55 +79,82 @@ void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList, c
     // mCommandsBuffer.emplace_back(hCommand);
 }
 
-void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst,
-    const D3D12Resource* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation)
+void D3D12CommandContext::CopyTexture(ID3D12GraphicsCommandList* pCommandList,
+    const D3D12Resource* pDst, const D3D12Resource* pSrc,
+    const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation)
 {
     ID3D12Resource* pDstResource = pDst->D3D12ResourcePtr();
     ID3D12Resource* pSrcResource = pSrc->D3D12ResourcePtr();
     D3D12_RESOURCE_DESC dstDesc = pDstResource->GetDesc();
     D3D12_RESOURCE_DESC srcDesc = pSrcResource->GetDesc();
-    D3D12_TEXTURE_COPY_LOCATION srcCopyLocation;
+
+    if (srcDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER &&
+        srcDesc.Dimension != dstDesc.Dimension) {
+        // ´íÎó´¦Àí
+        return;
+    }
+
+    D3D12_TEXTURE_COPY_LOCATION srcCopyLocation = {};
     srcCopyLocation.pResource = pSrcResource;
-    if (srcDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER)
-    {
-        uint32_t srcSubResource = srcLocation.mMipmap + srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
-            0 : srcLocation.mArrayIndex * srcDesc.MipLevels;
+
+    if (srcDesc.Dimension != D3D12_RESOURCE_DIMENSION_BUFFER) {
+        
+        uint32_t srcSubResource = srcLocation.mMipmap +
+            ((srcDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D) ?
+                (srcLocation.mArrayIndex * srcDesc.MipLevels) : 0);
+
         srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
         srcCopyLocation.SubresourceIndex = srcSubResource;
     }
-    else
-    {
+    else {
         ID3D12Device* pDevice;
         pCommandList->GetDevice(IID_PPV_ARGS(&pDevice));
+
+        uint32_t dstSubResource = dstLocation.mMipmap +
+            ((dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D) ?
+                (dstLocation.mArrayIndex * dstDesc.MipLevels) : 0);
+
+        D3D12_PLACED_SUBRESOURCE_FOOTPRINT footprint;
+        UINT numRows;
+        UINT64 rowSize, totalBytes;
+        pDevice->GetCopyableFootprints(&dstDesc, dstSubResource, 1,
+            0, &footprint, &numRows, &rowSize, &totalBytes);
+
         srcCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
-        pDevice->GetCopyableFootprints(&dstDesc, 0, 1, 0, &srcCopyLocation.PlacedFootprint, nullptr, nullptr, nullptr);
-        srcCopyLocation.PlacedFootprint.Offset = srcLocation.mPosX;
+        srcCopyLocation.PlacedFootprint = footprint;
+        srcCopyLocation.PlacedFootprint.Offset += srcLocation.mPosX;
+
         pDevice->Release();
     }
-    
-    uint32_t dstSubResource = dstLocation.mMipmap + dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE2D || dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE3D ?
-        0 : dstLocation.mArrayIndex * dstDesc.MipLevels;
 
-    D3D12_TEXTURE_COPY_LOCATION dstCopyLocation;
+    uint32_t dstSubResource = dstLocation.mMipmap +
+        ((dstDesc.Dimension == D3D12_RESOURCE_DIMENSION_TEXTURE1D) ?
+            (dstLocation.mArrayIndex * dstDesc.MipLevels) : 0);
+
+    D3D12_TEXTURE_COPY_LOCATION dstCopyLocation = {};
     dstCopyLocation.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
     dstCopyLocation.pResource = pDstResource;
     dstCopyLocation.SubresourceIndex = dstSubResource;
 
     pCommandList->CopyTextureRegion(
-        &dstCopyLocation, dstLocation.mPosX, dstLocation.mPosY, dstLocation.mPosZ, &srcCopyLocation, nullptr);
+        &dstCopyLocation,
+        dstLocation.mPosX, dstLocation.mPosY, dstLocation.mPosZ,
+        &srcCopyLocation,
+        nullptr);
 }
 
-void D3D12CommandContext::Initialize1(D3D12Device* pDevice,
-                                            RingDescriptorAllocator* pOnlineAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager*
-                                            pRootSigManager)
+void D3D12CommandContext::Initialize(D3D12Device* pDevice,
+                                     RingDescriptorAllocator* pOnlineDescriptorAllocator, D3D12RingBufferAllocator* pRingCBufferAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager*
+                                     pRootSigManager)
 {
     ASSERT(pDevice, TEXT("device must not be null."));
-    ASSERT(pOnlineAllocator, TEXT("OnlineDescriptorAllocator must not be null."));
+    ASSERT(pOnlineDescriptorAllocator, TEXT("OnlineDescriptorAllocator must not be null."));
     
     mDevice = pDevice;
-    mOnlineDescriptorAllocator = pOnlineAllocator;
+    mOnlineDescriptorAllocator = pOnlineDescriptorAllocator;
     mPSOManager = pPSOManager;
     mRootSignatureManager = pRootSigManager;
+    mRingFrameCBufferAllocator = pRingCBufferAllocator;
 
     mDummyCBuffer = mDevice->CreateCommitedResource(CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, CD3DX12_RESOURCE_DESC::Buffer(D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT),
         nullptr, D3D12_RESOURCE_STATE_COMMON);
@@ -133,6 +162,11 @@ void D3D12CommandContext::Initialize1(D3D12Device* pDevice,
     //desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN
     mDummyTexture = mDevice->CreateCommitedResource(CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), D3D12_HEAP_FLAG_NONE, desc,
         nullptr, D3D12_RESOURCE_STATE_COMMON);
+}
+
+std::unique_ptr<D3D12ConstantBuffer> D3D12CommandContext::AllocFrameConstantBuffer(uint16_t size) const
+{
+    return std::make_unique<D3D12ConstantBuffer>( mRingFrameCBufferAllocator->Allocate(::AlignUpToMul<uint64_t, 256>()(size)) );
 }
 
 //void D3D12CommandContext::Initialize2(ID3D12CommandQueue* directQueue, ID3D12CommandQueue* copyQueue,
@@ -174,7 +208,7 @@ void D3D12CommandContext::GetOnlineDescriptorHeaps(std::unique_ptr<ID3D12Descrip
     //    mDevice->CreateConstantBufferView(cbvDesc, handles[layout.mNumTextures + i].mCPUHandle);
     //    mAllocatedCBSize += allocation.mSize;
     //}
-    ppOnlineDescriptorHeaps.reset(new ID3D12DescriptorHeap*[]{ mOnlineDescriptorAllocator->GetHeap()->GetD3D12DescriptorHeap() });
+    ppOnlineDescriptorHeaps.reset(new ID3D12DescriptorHeap*[1]{ mOnlineDescriptorAllocator->GetHeap()->GetD3D12DescriptorHeap() });
     numHeaps = 1;
 }
 

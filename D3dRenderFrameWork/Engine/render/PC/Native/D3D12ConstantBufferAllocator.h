@@ -64,14 +64,14 @@ private:
     UnsafeRingAllocator mRingAllocator;
 };
 
-class D3D12BuddyCBufferAllocator : NonCopyable
+class D3D12BuddyBufferAllocator : NonCopyable
 {
 public:
     void Initialize(D3D12Device* pDevice, uint64_t poolSize = 4ull * 1024 * 1024 /* 4MB default */);
     Allocation Allocate(uint64_t size) const;
     void Free(uint64_t offset) const;
-    D3D12BuddyCBufferAllocator();
-    ~D3D12BuddyCBufferAllocator();
+    D3D12BuddyBufferAllocator();
+    ~D3D12BuddyBufferAllocator();
 
 private:
     void MergeBuddies(uint64_t blockOffset, uint64_t order);
@@ -84,10 +84,10 @@ private:
     BuddyAllocator mBuddyAllocator;
 };
 
-inline D3D12BuddyCBufferAllocator::D3D12BuddyCBufferAllocator() : mDevice(nullptr), mCPUVirtualAddress(nullptr), mBaseGPUVirtualAddress(0)
+inline D3D12BuddyBufferAllocator::D3D12BuddyBufferAllocator() : mDevice(nullptr), mCPUVirtualAddress(nullptr), mBaseGPUVirtualAddress(0)
 { }
 
-inline D3D12BuddyCBufferAllocator::~D3D12BuddyCBufferAllocator()
+inline D3D12BuddyBufferAllocator::~D3D12BuddyBufferAllocator()
 {
     if (mResource)
     {
@@ -96,7 +96,7 @@ inline D3D12BuddyCBufferAllocator::~D3D12BuddyCBufferAllocator()
     }
 }
 
-inline Allocation D3D12BuddyCBufferAllocator::Allocate(size_t size) const
+inline Allocation D3D12BuddyBufferAllocator::Allocate(size_t size) const
 {
     // Constant buffers must be 256-byte aligned
     size = ::AlignUpToMul<uint64_t, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>()(size);
@@ -111,7 +111,7 @@ inline Allocation D3D12BuddyCBufferAllocator::Allocate(size_t size) const
     return allocation;
 }
 
-inline void D3D12BuddyCBufferAllocator::Free(uint64_t offset) const
+inline void D3D12BuddyBufferAllocator::Free(uint64_t offset) const
 {
     if (!mBuddyAllocator.Free(offset))
     {
@@ -280,7 +280,7 @@ inline D3D12RingBufferAllocator::~D3D12RingBufferAllocator()
     }
 }
 
-inline void D3D12BuddyCBufferAllocator::Initialize(D3D12Device* pDevice, uint64_t poolSize)
+inline void D3D12BuddyBufferAllocator::Initialize(D3D12Device* pDevice, uint64_t poolSize)
 {
     mDevice = pDevice;
     poolSize = AlignUpToMul<uint64_t, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>()(poolSize);

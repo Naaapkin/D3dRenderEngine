@@ -228,4 +228,13 @@ uint64_t GetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::s
 uint64_t GetConstantsBufferSize(ID3D12ShaderReflection* pReflector, const std::wstring& name);
 bool ImplicitTransition(uint32_t stateBefore, uint32_t& stateAfter, bool isBufferOrSimultaneous);
 UComPtr<ID3DBlob> D3D12Compile(const Blob& blob, const char* entry, const char* pTarget, const char* file);
+void CopyTextureDataWithPitchAlignment(
+	void* pDest,
+	// 上传堆中映射的内存地址（起始指针）
+	const void* pSrc,
+	// 原始图像数据（每行连续）
+	uint32_t rowSize,
+	// 纹理宽度（像素）
+	uint32_t height
+);
 #endif

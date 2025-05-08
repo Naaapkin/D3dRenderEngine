@@ -4,6 +4,7 @@
 #include "RenderResource.h"
 #include "Shader.h"
 
+
 struct ConstantProperty
 {
     ConstantProperty() = default;
@@ -56,6 +57,7 @@ struct Material
 
 class MaterialInstance
 {
+    friend class Renderer;
 public:
     void InstantiateFrom(const Material* pMaterial);
     void SetMaterialInstanceId(uint64_t id);
@@ -85,8 +87,10 @@ private:
     const Material* mMaterial;
     uint64_t mInstanceId;
     
-    std::unique_ptr<Blob[]> mConstants;                
-    std::unique_ptr<TextureRef[]> mTextures;   // since the CPU rarely changes texture content, we don't cache texture content.
+    std::unique_ptr<Blob[]> mConstants;
+    std::unique_ptr<ConstantBufferRef[]> mConstantsGPU;
+    std::unique_ptr<TextureRef[]> mTexGPU;   // since the CPU rarely changes texture content, we don't cache texture content.
+    bool mIsDirty;
 	// std::unique_ptr<RHISamplerRef[]> mSamplers;   // TODO: implement samplers
 
     bool mEnableAlphaClip;
@@ -101,11 +105,13 @@ inline void MaterialInstance::InstantiateFrom(const Material* pMaterial)
 {
     mMaterial = pMaterial;
     mConstants.reset(new Blob[pMaterial->mNumConstants]);
-    mTextures.reset(new TextureRef[pMaterial->mNumTextures]);
+    mConstantsGPU.reset(new ConstantBufferRef[pMaterial->mNumConstants]);
+    mTexGPU.reset(new TextureRef[pMaterial->mNumTextures]);
     for (size_t i = 0; i < pMaterial->mNumConstants; ++i)
     {
         mConstants[i].Reserve(pMaterial->mConstants[i].mConstantSize);
     }
+    mIsDirty = true;
 
     mEnableAlphaClip = pMaterial->mEnableAlphaClip;
     mCullMode = pMaterial->mCullMode;
@@ -157,7 +163,7 @@ inline void MaterialInstance::SetTexture(uint32_t index, TextureDimension dimens
         WARN("dimension of material texture mismatch!");
         return;
     }
-    mTextures[index] = texture;
+    mTexGPU[index] = texture;
 }
 
 inline void MaterialInstance::SetTexture(uint32_t index, TextureRef texture)
@@ -167,7 +173,7 @@ inline void MaterialInstance::SetTexture(uint32_t index, TextureRef texture)
         WARN("index of material texture out of bound!");
         return;
     }
-    mTextures[index] = texture;
+    mTexGPU[index] = texture;
 }
 
 inline TextureRef MaterialInstance::GetTexture(uint32_t index) const
@@ -175,9 +181,9 @@ inline TextureRef MaterialInstance::GetTexture(uint32_t index) const
     if (index >= mMaterial->mNumTextures)
     {
         WARN("index of material texture out of bound!");
-        return MAXUINT64;
+        return {};
     }
-    return mTextures[index];
+    return mTexGPU[index];
 }
 
 inline const Blob& MaterialInstance::GetConstantBuffer(uint32_t index) const

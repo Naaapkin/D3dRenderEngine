@@ -4,6 +4,8 @@
 #include "Engine/render/PC/Native/D3D12CommandObjectPool.h"
 #include "Engine/render/PC/Native/D3D12DescriptorAllocator.h"
 
+class D3D12ConstantBuffer;
+class D3D12RingBufferAllocator;
 struct PipelineInitializer;
 struct D3D12RootSignature;
 class D3D12RootSignatureManager;
@@ -21,8 +23,10 @@ public:
                             dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth = 1);
     static void CopyTexture(ID3D12GraphicsCommandList* pCommandList, const D3D12Resource* pDst, const D3D12Resource* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation);
 
-    void Initialize1(D3D12Device* pDevice, RingDescriptorAllocator* pOnlineAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager* pRootSigManager);
+    void Initialize(D3D12Device* pDevice, RingDescriptorAllocator* pOnlineDescriptorAllocator, D3D12RingBufferAllocator*
+                    pRingCBufferAllocator, D3D12PipelineStateManager* pPSOManager, D3D12RootSignatureManager* pRootSigManager);
     //void Initialize2(ID3D12CommandQueue* directQueue, ID3D12CommandQueue* copyQueue, ID3D12CommandQueue* computeQueue);
+    std::unique_ptr<D3D12ConstantBuffer> AllocFrameConstantBuffer(uint16_t size) const;
     void AllocDescriptors(std::unique_ptr<D3D12DescriptorHandle[]>& pDescriptors, D3D12DescriptorHandle*& pTextures, const D3D12RootSignature* pRootSignature) const;
     ID3D12PipelineState* GetPipelineStateObject(
 	    const D3D12RootSignature* pRootSignature,
@@ -44,7 +48,9 @@ private:
     D3D12Device* mDevice;
     D3D12PipelineStateManager* mPSOManager;
     D3D12RootSignatureManager* mRootSignatureManager;
+    
     RingDescriptorAllocator* mOnlineDescriptorAllocator;
+    D3D12RingBufferAllocator* mRingFrameCBufferAllocator;
 
     UComPtr<ID3D12Resource> mDummyCBuffer;
     UComPtr<ID3D12Resource> mDummyTexture;

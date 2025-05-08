@@ -16,6 +16,7 @@ class D3D12GraphicsContext : public RHIGraphicsContext
     friend class D3D12RHI;
 public:
     void Initialize(D3D12CommandContext* pGraphicCommandContext, ID3D12CommandAllocator* pCommandAllocator, const D3D12Resource* pStagingBufferPool);
+    std::unique_ptr<RHIConstantBuffer> AllocConstantBuffer(uint16_t size) override;
     void UpdateBuffer(RHIBufferWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint64_t size, uint64_t dstStart, uint64_t srcStart) override;
     void UpdateTexture(RHITextureWrapper* pDst, RHIStagingBuffer* pStagingBuffer, uint8_t mipmap) override;
     void CopyTexture(RHITextureWrapper* pDst, RHITextureWrapper* pSrc, const TextureCopyLocation& dstLocation, const TextureCopyLocation& srcLocation, uint32_t width, uint32_t height, uint32_t depth) override;
@@ -30,7 +31,7 @@ public:
     void SetScissorRect(Rect* scissorRects, uint32_t numScissorRects) override;
     void SetRenderTargetsAndDepthStencil(RHIRenderTarget** renderTargets, uint32_t numRenderTargets, RHIDepthStencil* depthStencilTarget) override;
     void SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers) override;
-    void SetIndexBuffer(RHIIndexBuffer* pIndexBuffer) override;
+    void SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer) override;
     void DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex) override;
     void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount) override;
     void InsertFence(RHIFence* pFence, uint64_t semaphore) override;

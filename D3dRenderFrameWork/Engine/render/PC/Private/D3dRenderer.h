@@ -1,18 +1,13 @@
 ﻿#pragma once
-#include "Engine/render/RenderResource.h"
 #ifdef WIN32
 #include "Engine/pch.h"
 #include "Engine/common/helper.h"
 #include "Engine/render/Renderer.h"
-#include "Engine/render/PC/Private/D3D12CommandObjectPool.h"
 #include "Engine/render/PC/Private/DescriptorHeap.h"
-#include "Engine/render/PC/Resource/D3dAllocator.h"
-#include "Engine/render/PC/Resource/RenderTexture.h"
-#include "Engine/render/PC/Resource/StaticBuffer.h"
 
 // SampleRenderPath* gSampleRenderPath();
 
-struct ShaderConstant;
+struct ConstantProperty;
 struct RenderList;
 class HlslShader;
 class D3dContext;
@@ -34,7 +29,7 @@ public:
     static uint64_t sCalcObjectCbvOffset(uint8_t cpuWorkingPageIdx);
 
     void initialize(RendererSetting setting) override;
-    void registerShaders(std::vector<RHIShader*> shaders) override;
+    void registerShaders(std::vector<RHISubShader*> shaders) override;
     // ResourceHandle allocateDynamicBuffer(uint64_t Size) override;
     void releaseResource(const ResourceHandle& resourceHandle) const override;
     // void updatePassConstants(uint8_t registerIndex, void* pData, uint64_t Size) override;
@@ -73,7 +68,7 @@ private:
     // ---------------------------------------------------------------
 
     ComPtr<ID3D12RootSignature> mGlobalRootSignature;
-    std::unordered_map<const RHIShader*, ID3D12PipelineState*, HashPtrAsTyped<const RHIShader*>> mPipelineStates;
+    std::unordered_map<const RHISubShader*, ID3D12PipelineState*, HashPtrAsTyped<const RHISubShader*>> mPipelineStates;
     std::unique_ptr<DescriptorHeap> mRtDescHeap;
     std::unique_ptr<DescriptorHeap> mDsDescHeap;
     std::unique_ptr<DescriptorHeap> mCbSrUaDescHeap;

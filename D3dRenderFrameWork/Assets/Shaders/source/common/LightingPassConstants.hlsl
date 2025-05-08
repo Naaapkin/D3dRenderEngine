@@ -1,15 +1,13 @@
 
-#define LIGHT_CONSTANTS(x)\
+#define LIGHT_CONSTANTS\
     float4 mainLightDir;\
     float4 mainLightColor;\
-    float4 ambientColor;\
     float4 shadowColor;\
-    float mainLightIntensity;\
     float3 ambientLight;\
     float ambientIntensity;\
-\
-    float3 fogColor;\
-    float fogStart;\
-    float fogEnd;\
-    float fogDensity;\
-    uint fogMode;
+
+// fogColor : color.xyz | density
+// fogParams : fogStart | fogEnd
+#define FOG_CONSTANTS\
+    float4 fogColor;\
+    float4 fogParams;

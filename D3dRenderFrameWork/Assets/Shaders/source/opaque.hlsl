@@ -34,7 +34,7 @@ FragInput VsMain(SimpleVertexInput input)
 
 float4 PsMain(FragInput input) : SV_TARGET
 {
-    return input.position;
-    //return diffuse.Sample(LinearSampler, input.uv);
+    //return input.position;
+    return diffuse.Sample(LinearSampler, input.uv);
 }
 

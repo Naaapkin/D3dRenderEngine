@@ -58,6 +58,15 @@ struct AlignUpToMul<Numeric, 256, std::enable_if_t<std::is_arithmetic_v<Numeric>
         return num = (num + 255) & ~255;
     }
 };
+
+template<typename Numeric>
+struct AlignUpToMul<Numeric, 512, std::enable_if_t<std::is_arithmetic_v<Numeric>>>
+{
+    Numeric operator()(size_t num) const
+    {
+        return num = (num + 511) & ~511;
+    }
+};
 #endif
 
 // Round up to the smallest power of 2 larger than or equal to x

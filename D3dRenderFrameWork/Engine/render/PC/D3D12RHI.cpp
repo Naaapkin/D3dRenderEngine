@@ -20,8 +20,9 @@ void D3D12RHI::Initialize(const RHIConfiguration& configuration)
     mPipelineStateManager.reset(new D3D12PipelineStateManager{});
     mRootSignatureManager.reset(new D3D12RootSignatureManager{});
     mCommandObjectPool.reset(new D3D12CommandObjectPool{});
-    mConstantBufferAllocator.reset(new D3D12RingBufferAllocator{});
     mStagingBufferAllocator.reset(new D3D12RingBufferAllocator{});
+    mRingCBufferAllocator.reset(new D3D12RingBufferAllocator{});
+    mBuddyCBufferAllocator.reset(new D3D12BuddyBufferAllocator{});
 
     D3D12_COMMAND_QUEUE_DESC desc = {};
     desc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
@@ -35,8 +36,9 @@ void D3D12RHI::Initialize(const RHIConfiguration& configuration)
     mPipelineStateManager->Initialize(mDevice.get());
     mCommandObjectPool->Initialize(mDevice.get(), COMMAND_LIST_CAPACITY, COMMAND_ALLOCATOR_CAPACITY);
     mRootSignatureManager->Initialize(mDevice.get());
-    mConstantBufferAllocator->Initialize(mDevice.get(), 12 * 1024 * 1024); // TODO:
-    mStagingBufferAllocator->Initialize(mDevice.get(), 64 * 1024 * 1024);   // 64MB
+    mRingCBufferAllocator->Initialize(mDevice.get(), 8ull * 1024 * 1024); // TODO:
+    mBuddyCBufferAllocator->Initialize(mDevice.get(), 2ull * 1024 * 1024); // TODO:
+    mStagingBufferAllocator->Initialize(mDevice.get(), 64ull * 1024 * 1024);   // 64MB
 
     mOnlineCBVSRVUAVAllocator.reset(new RingDescriptorAllocator{});
     mRTVAllocator.reset(new BlockDescriptorAllocator{});
@@ -63,9 +65,9 @@ void D3D12RHI::Initialize(const RHIConfiguration& configuration)
     
     mShaderBinaryAllocator.Initialize();
 
-    mCommandContext.Initialize1(mDevice.get(), mOnlineCBVSRVUAVAllocator.get(), mPipelineStateManager.get(), mRootSignatureManager.get());
+    mCommandContext.Initialize(mDevice.get(), mOnlineCBVSRVUAVAllocator.get(), mRingCBufferAllocator.get(), mPipelineStateManager.get(), mRootSignatureManager.get());
     //mCommandContext.Initialize2(mDirectQueue.Get(), mCopyQueue.Get(), mComputeQueue.Get());
-    // Singleton<D3D12BuddyCBufferAllocator>::GetInstance().Initialize1(mDevice.get(), 256 * 1024 * 1024); // 256 MB
+    // Singleton<D3D12BuddyBufferAllocator>::GetInstance().Initialize(mDevice.get(), 256 * 1024 * 1024); // 256 MB
 }
 
 std::unique_ptr<RHIShader> D3D12RHI::RHICompileShader(const Blob& binary, ShaderType activeTypes, const std::string* path)
@@ -127,23 +129,35 @@ std::unique_ptr<RHIShader> D3D12RHI::RHICompileShader(const Blob& binary, Shader
     return std::unique_ptr<RHIShader>(pShader);
 }
 
-//std::unique_ptr<RHINativeBuffer> D3D12RHI::RHIAllocBuffer(uint64_t size)
-//{
-//    D3D12_HEAP_PROPERTIES prop = CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT);
-//    D3D12_RESOURCE_DESC d3d12Desc = CD3DX12_RESOURCE_DESC::Buffer(size);
-//    UComPtr<ID3D12Resource> pResource = mDevice->CreateCommitedResource(prop, D3D12_HEAP_FLAG_NONE, d3d12Desc, nullptr,
-//                                                                        D3D12_RESOURCE_STATE_COMMON);
-//    return std::make_unique<D3D12Buffer>(pResource.Detach(), RHIBufferDesc{size, ResourceType::STATIC});
-//}
-
 std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingBuffer(uint64_t size)
 {
     RHINativeBuffer* pCBuffer = new D3D12StagingBuffer(mStagingBufferAllocator->Allocate(size));
     return std::make_unique<RHIStagingBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
 }
 
-std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingTexture(uint64_t size)
+std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingTexture(const RHITextureDesc& desc, uint8_t mipmap)
 {
+    TextureDimension dimension = desc.mDimension;
+    uint16_t stride = ::GetFormatStride(desc.mFormat);
+    uint32_t width = std::max(1u, desc.mWidth >> mipmap);
+
+    uint32_t size;
+    switch (dimension)
+    {
+    case TextureDimension::TEXTURE1D:
+        size = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT>()(stride * width);
+        break;
+    case TextureDimension::TEXTURE2D:
+        size = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT>()(stride * width) * std::max(desc.mHeight >> mipmap, 1u);
+        size = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT>()(size);
+        break;
+    case TextureDimension::TEXTURE3D:
+        size = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT>()(stride * width) * std::max(desc.mHeight >> mipmap, 1u);
+        size = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT>()(size) * std::max(desc.mDepth >> mipmap, 1u);
+        break;
+    default:
+        THROW_EXCEPTION(TEXT("texture not supported yet."));
+    }
     RHINativeBuffer* pCBuffer = new D3D12StagingBuffer(mStagingBufferAllocator->AllocateAligned(size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT));
     return std::make_unique<RHIStagingBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
 }
@@ -151,7 +165,7 @@ std::unique_ptr<RHIStagingBuffer> D3D12RHI::RHIAllocStagingTexture(uint64_t size
 std::unique_ptr<RHIConstantBuffer> D3D12RHI::RHIAllocConstantBuffer(uint64_t size)
  {
      RHINativeBuffer* pCBuffer = new D3D12ConstantBuffer(
-         mConstantBufferAllocator->Allocate(
+         mBuddyCBufferAllocator->Allocate(
 	         ::AlignUpToMul<uint64_t, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT>()(size)));
      return std::make_unique<RHIConstantBuffer>(std::unique_ptr<RHINativeBuffer>(pCBuffer));
  }
@@ -307,6 +321,42 @@ void D3D12RHI::UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData,
     static_cast<D3D12StagingBuffer*>(pBuffer->GetBuffer())->Update(pData, offset, size);
 }
 
+void D3D12RHI::UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap)
+{
+    D3D12ConstantBuffer* pNativeBuffer = static_cast<D3D12ConstantBuffer*>(pStagingBuffer->GetBuffer());
+    const byte* pSrc = static_cast<const byte*>(pData);
+    uint16_t stride = ::GetFormatStride(desc.mFormat);
+	switch (desc.mDimension)
+	{
+	case TextureDimension::TEXTURE1D:
+        pNativeBuffer->Update(pSrc, 0, stride * desc.mWidth);
+        break;
+	case TextureDimension::TEXTURE2D:
+        if ((desc.mWidth & (D3D12_TEXTURE_DATA_PITCH_ALIGNMENT - 1)) == 0)
+		{
+            pNativeBuffer->Update(pSrc, 0, ::AlignUpToMul<uint64_t, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT>()(stride * desc.mWidth * desc.mHeight));
+		}
+        else
+        {
+            uint32_t rowSize = stride * desc.mWidth;
+            uint32_t rowPitch = ::AlignUpToMul<uint32_t, D3D12_TEXTURE_DATA_PITCH_ALIGNMENT>()(rowSize);
+            uint32_t size = rowPitch * desc.mHeight;
+            for (uint32_t i = 0; i < size; i += rowPitch, pSrc += rowSize)
+            {
+                pNativeBuffer->Update(pSrc, i, rowSize);
+            }
+        }
+        break;
+	case TextureDimension::TEXTURE3D:
+        // TODO: 
+        THROW_EXCEPTION(TEXT("3D texture update not supported yet."));
+        break;
+    default:
+        THROW_EXCEPTION(TEXT("not supported dimension."));
+        break;
+	}
+}
+
 void D3D12RHI::UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size)
 {
     static_cast<D3D12ConstantBuffer*>(pBuffer->GetBuffer())->Update(pData, offset, size);
@@ -323,7 +373,7 @@ void D3D12RHI::CreateCopyContext(RHICopyContext** ppContext)
 {
     D3D12CopyContext* pD3D12CopyContext = new D3D12CopyContext{};
     //D3D12CopyCommandContext* pCommandContext = new D3D12CopyCommandContext();
-    //pCommandContext->Initialize1();
+    //pCommandContext->Initialize();
     pD3D12CopyContext->Initialize(mStagingBufferAllocator->GetD3D12Resource(),
                                   mCommandObjectPool->ObtainCommandAllocator(D3D12_COMMAND_LIST_TYPE_COPY));
     *ppContext = pD3D12CopyContext;
