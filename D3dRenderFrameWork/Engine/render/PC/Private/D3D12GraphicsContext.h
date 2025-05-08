@@ -32,14 +32,14 @@ public:
     void SetRenderTargetsAndDepthStencil(RHIRenderTarget** renderTargets, uint32_t numRenderTargets, RHIDepthStencil* depthStencilTarget) override;
     void SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers) override;
     void SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer) override;
-    void DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex) override;
-    void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount) override;
+    void DrawInstanced(uint32_t verticesPerInstance, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance) override;
+    void DrawIndexedInstanced(uint32_t indicesPerInstance, uint32_t baseIndex, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance) override;
     void InsertFence(RHIFence* pFence, uint64_t semaphore) override;
 
-    void BeginDrawCall() override;
-	// push the dcs submitted since last call to EndDrawCalls to command list,
+    void BeginBinding() override;
+	// push the dcs submitted since last call to EndBindings to command list,
     // call this function before changing any states of graphic pipeline.
-    void EndDrawCalls() override;
+    void EndBindings() override;
     //void Execute() override;
     //void ExecuteWithSync(RHIFence* pFence, uint64_t semaphore) override;
 
@@ -51,16 +51,23 @@ private:
     {
 	    DrawCallParam() = default;
 
-	    DrawCallParam(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t numInstances)
-		    : mIndexPerInstance(indexPerInstance),
+	    DrawCallParam(uint32_t numVerticesPerInstance, uint32_t baseIndex, uint32_t baseVertex, uint32_t numInstances,
+		    uint32_t baseInstance, bool indexed)
+		    : mNumVerticesPerInstance(numVerticesPerInstance),
 		      mBaseIndex(baseIndex),
-		      mNumInstances(numInstances)
+		      mBaseVertex(baseVertex),
+		      mNumInstances(numInstances),
+		      mBaseInstance(baseInstance),
+    	      mIndexed(indexed)
 	    {
 	    }
 
-	    uint32_t mIndexPerInstance;
+	    uint32_t mNumVerticesPerInstance;
         uint32_t mBaseIndex;
+        uint32_t mBaseVertex;
         uint32_t mNumInstances;
+        uint32_t mBaseInstance;
+        bool mIndexed;
     };
     const D3D12Resource* mStagingBufferPool;
 	D3D12CommandContext* mCommandContext;
@@ -75,7 +82,7 @@ private:
     std::unique_ptr<D3D12DescriptorHandle[]> mDescriptorHandles;
     D3D12DescriptorHandle* mTextureHandles;
     std::vector<std::pair<D3D12Fence*, uint64_t>> mSynchronizes;    // TODO:
-    std::vector<DrawCallParam> mDrawCalls;
+    //std::vector<DrawCallParam> mDrawCalls;
 };
 
 class D3D12CopyContext : public RHICopyContext

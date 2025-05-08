@@ -30,21 +30,22 @@ public:
     std::unique_ptr<RHIFence>           RHICreateFence() override;
     std::unique_ptr<RHISwapChain>       RHICreateSwapChain(const RHISwapChainDesc& desc) override;
 
-    void UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
-    void UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) override;
-    void UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
-    void CreateGraphicsContext(RHIGraphicsContext** ppContext) override;
-    void CreateCopyContext(RHICopyContext** ppContext) override;
-    void CreateComputeContext(RHIComputeContext** ppContext) override;
-    void ResetGraphicsContext(RHIGraphicsContext* pContext) override;
-    void ResetCopyContext(RHICopyContext* pContext) const override;
-    void SubmitRenderCommands(RHIGraphicsContext* pContext) override;
-    void SubmitCopyCommands(RHICopyContext* pContext) override;
-    void SyncGraphicContext(RHIFence* pFence, uint64_t semaphore) override;
-    void SyncCopyContext(RHIFence* pFence, uint64_t semaphore) const override;
-    void BatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts) override;
-    void ReleaseGraphicsContext(RHIGraphicsContext* pContext) override;
-    void ReleaseCopyContext(RHICopyContext* pContext) override;
+    void RHIReleaseConstantBuffers(RHIConstantBuffer** pCBuffers, uint32_t numCBuffers) override;
+    void RHIUpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
+    void RHIUpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) override;
+    void RHIUpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) override;
+    void RHICreateGraphicsContext(RHIGraphicsContext** ppContext) override;
+    void RHICreateCopyContext(RHICopyContext** ppContext) override;
+    void RHICreateComputeContext(RHIComputeContext** ppContext) override;
+    void RHIResetGraphicsContext(RHIGraphicsContext* pContext) override;
+    void RHIResetCopyContext(RHICopyContext* pContext) const override;
+    void RHISubmitRenderCommands(RHIGraphicsContext* pContext) override;
+    void RHISubmitCopyCommands(RHICopyContext* pContext) override;
+    void RHISyncGraphicContext(RHIFence* pFence, uint64_t semaphore) override;
+    void RHISyncCopyContext(RHIFence* pFence, uint64_t semaphore) const override;
+    void RHIBatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts) override;
+    void RHIReleaseGraphicsContext(RHIGraphicsContext* pContext) override;
+    void RHIReleaseCopyContext(RHICopyContext* pContext) override;
     //void Present(RHISwapChain* pSwapChain) override;
     
     void Release() override;

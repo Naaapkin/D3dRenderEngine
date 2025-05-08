@@ -476,7 +476,7 @@ struct DepthTestDesc
 
     static DepthTestDesc Default()
     {
-        static DepthTestDesc defaultDepth = {true, CompareFunction::GREATER, DepthOperation::WRITE, 0};
+        static DepthTestDesc defaultDepth = {true, CompareFunction::GREATER_EQUAL, DepthOperation::WRITE, 0};
         return defaultDepth;
     }
 

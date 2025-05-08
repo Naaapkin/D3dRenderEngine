@@ -19,6 +19,7 @@ struct FragInput
 {
     float4 position : SV_POSITION;
     float2 uv : TEXCOORD0;
+    float3 positionWS : TEXCOORD1;
 };
 
 Texture2D<float4> diffuse : register(t0);
@@ -29,12 +30,13 @@ FragInput VsMain(SimpleVertexInput input)
     float4 worldPosition = mul(m_model, float4(input.position, 1));
     o.position = mul(m_projection, mul(m_view, worldPosition));
     o.uv = input.uv * m_diffuseBias.xy + m_diffuseBias.zw;
+    o.positionWS = input.position;
     return o;
 }
 
 float4 PsMain(FragInput input) : SV_TARGET
 {
-    //return input.position;
-    return diffuse.Sample(LinearSampler, input.uv);
+    return float4(input.positionWS.xyz, 1);
+    //return diffuse.Sample(LinearSampler, input.uv);
 }
 

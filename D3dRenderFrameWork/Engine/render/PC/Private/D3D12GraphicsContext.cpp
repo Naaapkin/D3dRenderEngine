@@ -215,15 +215,23 @@ void D3D12GraphicsContext::SetRenderTargetsAndDepthStencil(RHIRenderTarget** ren
 
 void D3D12GraphicsContext::SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers)
 {
-    D3D12_VERTEX_BUFFER_VIEW* vbvs = new D3D12_VERTEX_BUFFER_VIEW[numVertexBuffers];
-    for (int i = 0; i < numVertexBuffers; ++i)
+    if (vertexBuffers)
     {
-        D3D12VertexBuffer* buffer = static_cast<D3D12VertexBuffer*>(vertexBuffers[0]->GetBuffer());
-        vbvs[i] = buffer->GetVertexBufferView();
-    }
+	    D3D12_VERTEX_BUFFER_VIEW* vbvs = new D3D12_VERTEX_BUFFER_VIEW[numVertexBuffers];
+    	for (int i = 0; i < numVertexBuffers; ++i)
+    	{
+    		D3D12VertexBuffer* buffer = static_cast<D3D12VertexBuffer*>(vertexBuffers[0]->GetBuffer());
+    		vbvs[i] = buffer->GetVertexBufferView();
+    	}
 
-    mCommandList->IASetVertexBuffers(0, numVertexBuffers, vbvs);
-    delete[] vbvs;
+    	mCommandList->IASetVertexBuffers(0, numVertexBuffers, vbvs);
+    	delete[] vbvs;
+    }
+    else
+    {
+        D3D12_VERTEX_BUFFER_VIEW vbv = { 0, 0, 0 };
+        mCommandList->IASetVertexBuffers(0, 1, &vbv);
+    }
 }
 
 void D3D12GraphicsContext::SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer)
@@ -233,14 +241,14 @@ void D3D12GraphicsContext::SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer)
     mCommandList->IASetIndexBuffer(&ibv);
 }
 
-void D3D12GraphicsContext::DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex)
+void D3D12GraphicsContext::DrawInstanced(uint32_t verticesPerInstance, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance)
 {
-    mDrawCalls.emplace_back(indexPerInstance, baseIndex, 1);
+    mCommandList->DrawInstanced(verticesPerInstance, instanceCount, baseVertex, baseInstance);
 }
 
-void D3D12GraphicsContext::DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount)
+void D3D12GraphicsContext::DrawIndexedInstanced(uint32_t indicesPerInstance, uint32_t baseIndex, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance)
 {
-    mDrawCalls.emplace_back(indexPerInstance, baseIndex, instanceCount);
+    mCommandList->DrawIndexedInstanced(indicesPerInstance, instanceCount, baseIndex, static_cast<int32_t>(baseVertex), baseInstance);
 }
 
 void D3D12GraphicsContext::InsertFence(RHIFence* pFence, uint64_t semaphore)
@@ -249,17 +257,16 @@ void D3D12GraphicsContext::InsertFence(RHIFence* pFence, uint64_t semaphore)
     mSynchronizes.emplace_back(static_cast<D3D12Fence*>(pFence), semaphore);
 }
 
-void D3D12GraphicsContext::BeginDrawCall()
+void D3D12GraphicsContext::BeginBinding()
 {
     mCommandContext->AllocDescriptors(mDescriptorHandles, mTextureHandles, mRootSignature);
-
-    mDrawCalls.clear();
+    //mDrawCalls.clear();
 }
 
 void D3D12GraphicsContext::Reset(ID3D12GraphicsCommandList* pCommandList)
 {
     mRootSignature = mCommandContext->GetRootSignature(/*"UniversalRootSignature"*/);
-    mDrawCalls.clear();
+    //mDrawCalls.clear();
     mResourceStateTracker->Cancel();
     mDescriptorHandles.reset();
     mTextureHandles = nullptr;
@@ -286,15 +293,24 @@ void D3D12GraphicsContext::TransitionResource(const D3D12Resource* pResource, Re
     
 }
 
-void D3D12GraphicsContext::EndDrawCalls()
+void D3D12GraphicsContext::EndBindings()
 {
-    if (mDrawCalls.empty()) return;
     mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     mCommandList->SetGraphicsRootDescriptorTable(2, mDescriptorHandles[0].mGPUHandle);
-	for (const auto& drawCall : mDrawCalls)
-	{
-        mCommandList->DrawIndexedInstanced(drawCall.mIndexPerInstance, drawCall.mNumInstances, drawCall.mBaseIndex, 0, 0);
-	}
+    //if (mDrawCalls.empty()) return;
+    /*mCommandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    mCommandList->SetGraphicsRootDescriptorTable(2, mDescriptorHandles[0].mGPUHandle);*/
+	//for (const auto& drawCall : mDrawCalls)
+	//{
+ //       if (drawCall.mIndexed)
+ //       {
+	//        mCommandList->DrawIndexedInstanced(drawCall.mNumVerticesPerInstance, drawCall.mNumInstances, drawCall.mBaseIndex, drawCall.mBaseVertex, drawCall.mBaseInstance);
+ //       }
+ //       else
+ //       {
+ //           mCommandList->DrawInstanced(drawCall.mNumVerticesPerInstance, drawCall.mNumInstances, drawCall.mBaseVertex, drawCall.mBaseInstance);
+ //       }
+	//}
 }
 
 //void D3D12GraphicsContext::Execute()

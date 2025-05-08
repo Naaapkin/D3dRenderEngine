@@ -107,14 +107,14 @@ void Renderer::initialize()
 	mRenderContexts.reset(new RenderContext[numBackBuffer]);
 	for (uint8_t i = 0; i < numBackBuffer; ++i)
 	{
-		mRenderHardwareInterface->CreateGraphicsContext(&pRenderContext);
+		mRenderHardwareInterface->RHICreateGraphicsContext(&pRenderContext);
 		mRenderContexts[i].mGraphicContext = std::unique_ptr<RHIGraphicsContext>(pRenderContext);
 		mRenderContexts[i].mFenceGPU = mRenderHardwareInterface->RHICreateFence();
 		mRenderContexts[i].mFenceCPU = 0;
 	}
 
 	RHICopyContext* pCopyContext;
-	mRenderHardwareInterface->CreateCopyContext(&pCopyContext);
+	mRenderHardwareInterface->RHICreateCopyContext(&pCopyContext);
 	mCopyContext.reset(pCopyContext);
 	mCopyFenceGPU = mRenderHardwareInterface->RHICreateFence();
 	mCopyFenceCPU = 0;
@@ -129,8 +129,10 @@ void Renderer::initialize()
 	ASSERT(it != mShaderMap.end(), TEXT("missing mShader : PreDepth"));
 	preDepth.SetShader(it->second);
 	preDepth.SetBlend(false, false, BlendDesc::Disabled());
+	preDepth.SetDepthBias(DepthBiasSet::NORMAL);
 
 	PipelineInitializer& skybox = mPipeStateInitializers[PSO_SKY_BOX];
+	skybox = PipelineInitializer::Default();
 	skybox.SetBlend(false, false, BlendDesc::Disabled());
 	DepthTestDesc&& depthTest = DepthTestDesc::Default();
 	depthTest.mDepthWriteMask = 0;
@@ -147,6 +149,10 @@ void Renderer::initialize()
 
 	PipelineInitializer& transparent = mPipeStateInitializers[PSO_TRANSPARENT];
 	transparent = PipelineInitializer::Default();
+
+	uint16_t quadIndices[6] = {0, 1, 2, 0, 2, 3};
+	sQuadMeshIndexBuffer = allocIndexBuffer(6, Format::R16_UINT);
+	updateIndexBuffer(quadIndices, sizeof(uint16_t) * 6, sQuadMeshIndexBuffer, true);
 }
 
 VertexBufferRef Renderer::allocVertexBuffer(uint32_t numVertices, uint32_t vertexSize)
@@ -171,12 +177,12 @@ void Renderer::updateVertexBuffer(const void* pData, uint64_t bufferSize, Vertex
 {
 	uint64_t size = std::min<uint64_t>(vertexBufferGPU->GetBuffer()->BufferSize(), bufferSize);
 	auto&& stagingBuffer = mRenderHardwareInterface->RHIAllocStagingBuffer(size);
-	mRenderHardwareInterface->UpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
+	mRenderHardwareInterface->RHIUpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
-	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
+	mRenderHardwareInterface->RHIResetCopyContext(mCopyContext.get());
 	mCopyContext->UpdateBuffer(vertexBufferGPU.mObject, stagingBuffer.get(), size, 0, 0);
-	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
-	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
+	mRenderHardwareInterface->RHISubmitCopyCommands(mCopyContext.get());
+	mRenderHardwareInterface->RHISyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
 	if (!blockRendering) return;;
 	mRenderContexts[mCurrentRenderContextIndex].mGraphicContext->InsertFence(mCopyFenceGPU.get(), mCopyFenceCPU);
@@ -186,12 +192,12 @@ void Renderer::updateIndexBuffer(const void* pData, uint64_t bufferSize, IndexBu
 {
 	uint64_t size = std::min<uint64_t>(indexBufferGPU->GetBuffer()->BufferSize(), bufferSize);
 	auto&& stagingBuffer = mRenderHardwareInterface->RHIAllocStagingBuffer(size);
-	mRenderHardwareInterface->UpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
+	mRenderHardwareInterface->RHIUpdateStagingBuffer(stagingBuffer.get(), pData, 0, size);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
-	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
+	mRenderHardwareInterface->RHIResetCopyContext(mCopyContext.get());
 	mCopyContext->UpdateBuffer(indexBufferGPU.mObject, stagingBuffer.get(), size, 0, 0);
-	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
-	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
+	mRenderHardwareInterface->RHISubmitCopyCommands(mCopyContext.get());
+	mRenderHardwareInterface->RHISyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
 	if (!blockRendering) return;;
 	mRenderContexts[mCurrentRenderContextIndex].mGraphicContext->InsertFence(mCopyFenceGPU.get(), mCopyFenceCPU);
@@ -202,12 +208,12 @@ void Renderer::updateTexture(const void* pData, TextureRef textureGPU, uint8_t m
 	const RHITextureDesc& desc = textureGPU->GetDesc();
 	// TODO: support update multi-mips
 	std::unique_ptr<RHIStagingBuffer> pStagingBuffer = mRenderHardwareInterface->RHIAllocStagingTexture(desc, mipmap);
-	mRenderHardwareInterface->UpdateStagingTexture(pStagingBuffer.get(), desc, pData, mipmap);
+	mRenderHardwareInterface->RHIUpdateStagingTexture(pStagingBuffer.get(), desc, pData, mipmap);
 	mCopyFenceGPU->Wait(mCopyFenceCPU);
-	mRenderHardwareInterface->ResetCopyContext(mCopyContext.get());
+	mRenderHardwareInterface->RHIResetCopyContext(mCopyContext.get());
 	mCopyContext->UpdateTexture(textureGPU.mObject, pStagingBuffer.get(), 0);
-	mRenderHardwareInterface->SubmitCopyCommands(mCopyContext.get());
-	mRenderHardwareInterface->SyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
+	mRenderHardwareInterface->RHISubmitCopyCommands(mCopyContext.get());
+	mRenderHardwareInterface->RHISyncCopyContext(mCopyFenceGPU.get(), ++mCopyFenceCPU);
 
 	if (!blockRendering) return;;
 	mRenderContexts[mCurrentRenderContextIndex].mGraphicContext->InsertFence(mCopyFenceGPU.get(), mCopyFenceCPU);
@@ -267,7 +273,7 @@ void Renderer::render()
 	RenderContext& renderContext = mRenderContexts[mCurrentRenderContextIndex];
 	RHIGraphicsContext* graphicsContext = renderContext.mGraphicContext.get();
 	renderContext.mFenceGPU->Wait(renderContext.mFenceCPU);
-	mRenderHardwareInterface->ResetGraphicsContext(graphicsContext);
+	mRenderHardwareInterface->RHIResetGraphicsContext(graphicsContext);
 	mSwapChain->BeginFrame(graphicsContext);
 
 	for (auto& renderList : mRenderLists)
@@ -276,35 +282,42 @@ void Renderer::render()
 		RHIRenderTarget* pRenderTarget = mSwapChain->GetCurrentColorTexture();
 		RHIDepthStencil* pDepthStencil = mDepthStencilBuffer;
 		RHITextureDesc rtDesc = pRenderTarget->GetTextureDesc();
-		Viewport viewports[] = { Viewport{static_cast<float>(rtDesc.mWidth), static_cast<float>(rtDesc.mHeight), 0, 1} };
+		Viewport viewports[] = { Viewport{static_cast<float>(rtDesc.mWidth), static_cast<float>(rtDesc.mHeight), 1, 0} };
 		Rect scissorRects[] = { Rect{0, 0, static_cast<int32_t>(rtDesc.mWidth), static_cast<int32_t>(rtDesc.mHeight)} };
 		// TODO: Calculations like this can move to pre-render phase.
 
+		mPipeStateInitializers[PSO_SKY_BOX].SetFrameBuffers(pRenderTarget->GetFormat(), pDepthStencil->GetFormat());
+		mPipeStateInitializers[PSO_PRE_DEPTH].SetFrameBuffers(Format::UNKNOWN, pDepthStencil->GetFormat());
+		mPipeStateInitializers[PSO_OPAQUE].SetFrameBuffers(pRenderTarget->GetFormat(), pDepthStencil->GetFormat());
+
+		mPassConstants->mScreenParams = { viewports[0].mWidth, viewports[0].mHeight, 1, 1 };
 		graphicsContext->SetViewPorts(viewports, 1);
 		graphicsContext->SetScissorRect(scissorRects, 1);
 
 		graphicsContext->SetRenderTargetsAndDepthStencil(nullptr, 0, pDepthStencil);
+		//graphicsContext->SetRenderTargetsAndDepthStencil(&pRenderTarget, 1, pDepthStencil);
 		graphicsContext->ClearDepthStencil(pDepthStencil, true, true, 0, 0, nullptr, 0);
 
-		mPipeStateInitializers[PSO_PRE_DEPTH].SetFrameBuffers(Format::UNKNOWN, mDepthStencilBuffer->GetFormat());
-		mPipeStateInitializers[PSO_PRE_DEPTH].SetDepthStencil(mDepthStencilBuffer->GetFormat());
-
 		depthPrePass(graphicsContext, renderList.mOpaqueList, renderList.mCameraConstants);
-		//mRenderHardwareInterface->SubmitRenderCommands(graphicsContext);
-
-		//mRenderHardwareInterface->ResetGraphicsContext(graphicsContext);
-		graphicsContext->SetViewPorts(viewports, 1);
-		graphicsContext->SetScissorRect(scissorRects, 1);
 
 		graphicsContext->SetRenderTargetsAndDepthStencil(&pRenderTarget, 1, pDepthStencil);
 		graphicsContext->ClearRenderTarget(pRenderTarget, renderList.mBackGroundColor, scissorRects, 1);
-		graphicsContext->ClearDepthStencil(pDepthStencil, true, true, 0, 0, scissorRects, 1);
+		if (renderList.mSkyboxShader)
+		{
+			skyboxPass(graphicsContext, *renderList.mSkyboxShader, renderList.mSkyBoxType, renderList.mCameraConstants);
+		}
+		//mRenderHardwareInterface->RHISubmitRenderCommands(graphicsContext);
+
+		//mRenderHardwareInterface->RHIResetGraphicsContext(graphicsContext);
+		//graphicsContext->SetViewPorts(viewports, 1);
+		//graphicsContext->SetScissorRect(scissorRects, 1);
+
 
 		opaquePass(graphicsContext, renderList.mOpaqueList, renderList.mCameraConstants);
 	}
 	mSwapChain->EndFrame(graphicsContext);
-	mRenderHardwareInterface->SubmitRenderCommands(graphicsContext);
-	mRenderHardwareInterface->SyncGraphicContext(renderContext.mFenceGPU.get(), ++renderContext.mFenceCPU);
+	mRenderHardwareInterface->RHISubmitRenderCommands(graphicsContext);
+	mRenderHardwareInterface->RHISyncGraphicContext(renderContext.mFenceGPU.get(), ++renderContext.mFenceCPU);
 	mSwapChain->Present();
 	mCurrentRenderContextIndex = (mCurrentRenderContextIndex + 1) % mNumRenderContexts;
 
@@ -329,7 +342,7 @@ uint32_t Renderer::allocGPUResource(RHIObject* pObject)
 void Renderer::createBuiltinResources()
 {
 	const char* builtinShaderSources[] = {
-		"cbuffer ObjectConstants : register(b1) { float4x4 m_model; float4x4 m_view; float4x4 m_projection; float4x4 m_model_i; float4x4 m_view_i; float4x4 m_projection_i; }; struct SimpleVertexInput{float3 position : POSITION;float3 normal : NORMAL;float2 uv : TEXCOORD;};struct FragInput{float4 position : SV_POSITION;};FragInput VsMain(SimpleVertexInput input){FragInput o;float4 worldPosition = mul(m_model, float4(input.position, 1));o.position = mul(m_projection, mul(m_view, worldPosition));return o;}",
+		"cbuffer ObjectConstants : register(b1) { float4x4 m_model; float4x4 m_model_i; float4x4 m_view; float4x4 m_view_i; float4x4 m_projection; float4x4 m_projection_i; }; struct SimpleVertexInput{float3 position : POSITION;float3 normal : NORMAL;float2 uv : TEXCOORD;};struct FragInput{float4 position : SV_POSITION;};FragInput VsMain(SimpleVertexInput input){FragInput o;float4 worldPosition = mul(m_model, float4(input.position, 1));o.position = mul(m_projection, mul(m_view, worldPosition));return o;}",
 	};
 
 	Blob shaderSource{builtinShaderSources[0], strlen(builtinShaderSources[0])};
@@ -337,15 +350,77 @@ void Renderer::createBuiltinResources()
 	registerShader(TEXT("PreDepth"), std::move(pShader));
 }
 
-void Renderer::beginFrame(RHIGraphicsContext* renderContext)
+void Renderer::beginFrame(RenderContext* pRenderContext)
 {
-	mRenderHardwareInterface->ResetGraphicsContext(renderContext);
+	auto& renderContext = *pRenderContext;
+	mRenderHardwareInterface->RHIReleaseConstantBuffers(renderContext.mReleasingCBuffers.data(), renderContext.mReleasingCBuffers.size());
+	renderContext.mReleasingCBuffers.clear();
+	for (const RenderList& renderList : mRenderLists)
+	{
+		for (const RenderItem& opaqueItem : renderList.mOpaqueList)
+		{
+			MaterialInstance& materialInstance = *opaqueItem.mMaterial;
+			if (!materialInstance.mIsDirty) continue;
+			const Material& material = *materialInstance.mMaterial;
+			// if the constants of material instance is dirty, reallocate constant buffers for this material.
+			for (int i = 0; i < material.mNumConstants; ++i)
+			{
+				ConstantBufferRef& cbufferRef = materialInstance.mConstantsGPU[i];
+				mGPUResources[cbufferRef.mIndex].release();
+				renderContext.mReleasingCBuffers.push_back(cbufferRef.mObject);
+				cbufferRef.mObject = mRenderHardwareInterface->RHIAllocConstantBuffer(material.mConstants[i].mConstantSize).release();
+				mGPUResources[cbufferRef.mIndex].reset(cbufferRef.mObject);
+				const Blob& cbufferCache = materialInstance.GetConstantBuffer(i);
+				mRenderHardwareInterface->RHIUpdateConstantBuffer(cbufferRef.mObject, cbufferCache.Binary(), 0, cbufferCache.Size());
+			}
+		}
+	}
+	mRenderHardwareInterface->RHIResetGraphicsContext(pRenderContext->mGraphicContext.get());
 }
 
-void Renderer::skyboxPass(RHIGraphicsContext* pRenderContext, const MaterialInstance& skyboxMaterial,
-	const CameraConstants& cameraConstants)
+void Renderer::skyboxPass(RHIGraphicsContext* pRenderContext, const RHIShader& skyboxShader,
+                          SkyboxType type, const CameraConstants& cameraConstants)
 {
+	PipelineInitializer& skyboxPSO = mPipeStateInitializers[PSO_SKY_BOX];
+	skyboxPSO.SetShader(&skyboxShader);
 
+	struct alignas(256) SkyBoxConstants
+	{
+		Matrix4x4 mVP;
+		Matrix4x4 mVPI;
+		Float4 mScreenParams;
+	};
+
+	switch (type)
+	{
+	// only procedural skybox supported
+	case SkyboxType::SKYBOX_PROCEDURAL:
+		{
+		skyboxPSO.SetCullMode(CullMode::BACK);
+
+		pRenderContext->SetPipelineState(skyboxPSO);
+		SkyBoxConstants skyboxConstants{ static_cast<DirectX::XMMATRIX>(cameraConstants.mProjection) * cameraConstants.mView ,
+			static_cast<DirectX::XMMATRIX>(cameraConstants.mViewInverse) * cameraConstants.mProjectionInverse, mPassConstants->mScreenParams };
+
+		std::unique_ptr<RHIConstantBuffer> cbuffer = pRenderContext->AllocConstantBuffer(sizeof(LightConstant));
+		pRenderContext->BeginBinding();
+		mRenderHardwareInterface->RHIUpdateConstantBuffer(cbuffer.get(), &mPassConstants->mLightConstant, 0, sizeof(LightConstant));
+		pRenderContext->SetConstantBuffer(0, cbuffer.get());
+
+		cbuffer = pRenderContext->AllocConstantBuffer(sizeof(SkyBoxConstants));
+		mRenderHardwareInterface->RHIUpdateConstantBuffer(cbuffer.get(), &skyboxConstants, 0, sizeof(SkyBoxConstants));
+		pRenderContext->SetConstantBuffer(1, cbuffer.get());
+		pRenderContext->SetVertexBuffers(nullptr, 0);
+		pRenderContext->SetIndexBuffer(sQuadMeshIndexBuffer.mObject);
+		pRenderContext->EndBindings();
+
+		pRenderContext->DrawIndexedInstanced(6, 0, 0, 1, 0);
+		}
+		break;
+	default:
+		THROW_EXCEPTION(TEXT("unsupported skybox type."));
+		break;
+	}
 }
 
 void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants)
@@ -354,7 +429,6 @@ void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vecto
 	TransformConstants transform{DirectX::XMMatrixIdentity(), DirectX::XMMatrixIdentity(), cameraConstants };
 	for (const auto& renderItem : renderItems)
 	{
-		pRenderContext->BeginDrawCall();
 		const MaterialInstance& material = *renderItem.mMaterial;
 		const DepthTestDesc& depthTest = renderItem.mMaterial->DepthTest();
 		if (!depthTest.mEnableDepthTest) continue;
@@ -368,20 +442,23 @@ void Renderer::depthPrePass(RHIGraphicsContext* pRenderContext, const std::vecto
 		transform.mModel = renderItem.mModel;
 		transform.mModelInverse = renderItem.mModelInverse;
 		std::unique_ptr<RHIConstantBuffer> cbuffer = pRenderContext->AllocConstantBuffer(sizeof(TransformConstants));
-		mRenderHardwareInterface->UpdateConstantBuffer(cbuffer.get(), &transform, 0, sizeof(TransformConstants));
+		mRenderHardwareInterface->RHIUpdateConstantBuffer(cbuffer.get(), &transform, 0, sizeof(TransformConstants));
+
+		pRenderContext->BeginBinding();
 		pRenderContext->SetConstantBuffer(1, cbuffer.get());
 
 		RHIVertexBuffer* vertexBuffers[] = { renderItem.mMeshData.mVertexBuffer.mObject };
 		pRenderContext->SetVertexBuffers(vertexBuffers, 1);
 		pRenderContext->SetIndexBuffer(renderItem.mMeshData.mIndexBuffer.mObject);
+		pRenderContext->EndBindings();
+
 		const SubMesh* subMeshes = renderItem.mMeshData.mSubMeshes.get();
 		uint32_t numSubMeshes = renderItem.mMeshData.mSubMeshCount;
 		for (uint32_t i = 0; i < numSubMeshes; ++i)
 		{
 			// TODO: support gpu instancing.
-			pRenderContext->DrawIndexedInstanced(subMeshes[i].mIndexNum, subMeshes[i].mStartIndex, 1);
+			pRenderContext->DrawIndexedInstanced(subMeshes[i].mIndexNum, subMeshes[i].mStartIndex, subMeshes[i].mBaseVertex, 1, 0);
 		}
-		pRenderContext->EndDrawCalls();
 	}
 }
 
@@ -391,8 +468,6 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 	TransformConstants transform{ DirectX::XMMatrixIdentity(), DirectX::XMMatrixIdentity(), cameraConstants };
 	for (const auto& renderItem : renderItems)
 	{
-		pRenderContext->BeginDrawCall();
-
 		// set pipeline states
 		const MaterialInstance& material = *renderItem.mMaterial;
 		opaquePSO.SetCullMode(material.GetCullMode());
@@ -405,6 +480,7 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 
 		const MaterialInstance& materialInstance = *renderItem.mMaterial;
 
+		pRenderContext->BeginBinding();
 		// update and bind constants(uniforms)
 		transform.mModel = renderItem.mModel;
 		transform.mModelInverse = renderItem.mModelInverse;
@@ -413,12 +489,12 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 		std::unique_ptr<RHIConstantBuffer*[]> cbuffers = std::make_unique<RHIConstantBuffer*[]>(numConstants);
 		cbuffers[0] = pTransformCBuffer;
 		// TODO: 
-		mRenderHardwareInterface->UpdateConstantBuffer(pTransformCBuffer, &transform, 0, sizeof(TransformConstants));
+		mRenderHardwareInterface->RHIUpdateConstantBuffer(pTransformCBuffer, &transform, 0, sizeof(TransformConstants));
 		for (uint8_t i = 1; i < numConstants; ++i)
 		{
 			const Blob& constant = materialInstance.GetConstantBuffer(i - 1);
 			cbuffers[i] = pRenderContext->AllocConstantBuffer(constant.Size()).release();
-			mRenderHardwareInterface->UpdateConstantBuffer(cbuffers[i], constant.Binary(), 0, constant.Size());
+			mRenderHardwareInterface->RHIUpdateConstantBuffer(cbuffers[i], constant.Binary(), 0, constant.Size());
 		}
 		pRenderContext->SetConstantBuffers(1, numConstants, cbuffers.get());
 		for (uint8_t i = 0; i < numConstants; ++i)
@@ -439,6 +515,7 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 		RHIVertexBuffer* vertexBuffers[] = { renderItem.mMeshData.mVertexBuffer.mObject };
 		pRenderContext->SetVertexBuffers(vertexBuffers, 1);
 		pRenderContext->SetIndexBuffer(renderItem.mMeshData.mIndexBuffer.mObject);
+		pRenderContext->EndBindings();
 
 		// append draw call
 		const SubMesh* subMeshes = renderItem.mMeshData.mSubMeshes.get();
@@ -446,9 +523,8 @@ void Renderer::opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<
 		for (uint32_t i = 0; i < numSubMeshes; ++i)
 		{
 			// TODO: support gpu instancing.
-			pRenderContext->DrawIndexedInstanced(subMeshes[i].mIndexNum, subMeshes[i].mStartIndex, 1);
+			pRenderContext->DrawIndexedInstanced(subMeshes[i].mIndexNum, subMeshes[i].mStartIndex, subMeshes[i].mBaseVertex, 1, 0);
 		}
-		pRenderContext->EndDrawCalls();
 	}
 }
 
@@ -456,3 +532,5 @@ void Renderer::postRender()
 {
         
 }
+
+RHIRef<RHIIndexBuffer> Renderer::sQuadMeshIndexBuffer{};

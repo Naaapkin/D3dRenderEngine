@@ -8,7 +8,7 @@ class RHIShader;
 
 struct PipelineInitializer
 {
-    void SetShader(RHIShader* pShader)
+    void SetShader(const RHIShader* pShader)
     {
         mShader = pShader;
     }
@@ -200,6 +200,11 @@ struct PipelineInitializer
         mCullMode = cullMode;
     }
 
+    void SetDepthBias(DepthBiasSet depthBias)
+    {
+        mDepthBias = depthBias;
+    }
+
     // enable DepthTest, StencilTest, AntiAliasedLine, Blend
 
     static PipelineInitializer Default()
@@ -330,7 +335,7 @@ struct PipelineInitializer
         uint32_t mRasterizerInitializer{};
     };
 
-    RHIShader* mShader;
+    const RHIShader* mShader;
 
     PipelineInitializer() = default;
 };

@@ -45,21 +45,24 @@ public:
     // virtual std::unique_ptr<RHIFrameBuffer> RHICreateDepthStencilBuffer(RHINativeTexture* rt) = 0;
     // virtual std::unique_ptr<RHIFrameBuffer> RHICreateRenderTargetBuffer(RHINativeTexture* rt) = 0;
     virtual std::unique_ptr<RHIFence>       RHICreateFence() = 0;
-    virtual void UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
-    virtual void UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) = 0;
-    virtual void UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
-    virtual void CreateGraphicsContext(RHIGraphicsContext** ppContext) = 0;
-    virtual void CreateCopyContext(RHICopyContext** ppContext) = 0;
-    virtual void CreateComputeContext(RHIComputeContext** ppContext) = 0;
-    virtual void ResetGraphicsContext(RHIGraphicsContext* pContext) = 0;
-    virtual void ResetCopyContext(RHICopyContext* pContext) const = 0;
-    virtual void SubmitRenderCommands(RHIGraphicsContext* pContext) = 0;
-    virtual void SyncGraphicContext(RHIFence* pFence, uint64_t semaphore) = 0;
-    virtual void SubmitCopyCommands(RHICopyContext* pContext) = 0;
-    virtual void SyncCopyContext(RHIFence* pFence, uint64_t semaphore) const = 0;
-    virtual void BatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts) = 0;
-    virtual void ReleaseGraphicsContext(RHIGraphicsContext* pContext) = 0;
-    virtual void ReleaseCopyContext(RHICopyContext* pContext) = 0;
+
+    virtual void RHIUpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
+    virtual void RHIUpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap) = 0;
+    virtual void RHIUpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size) = 0;
+    virtual void RHIReleaseConstantBuffers(RHIConstantBuffer** pCBuffers, uint32_t numCBuffers) = 0;
+
+    virtual void RHICreateGraphicsContext(RHIGraphicsContext** ppContext) = 0;
+    virtual void RHICreateCopyContext(RHICopyContext** ppContext) = 0;
+    virtual void RHICreateComputeContext(RHIComputeContext** ppContext) = 0;
+    virtual void RHIResetGraphicsContext(RHIGraphicsContext* pContext) = 0;
+    virtual void RHIResetCopyContext(RHICopyContext* pContext) const = 0;
+    virtual void RHISubmitRenderCommands(RHIGraphicsContext* pContext) = 0;
+    virtual void RHISyncGraphicContext(RHIFence* pFence, uint64_t semaphore) = 0;
+    virtual void RHISubmitCopyCommands(RHICopyContext* pContext) = 0;
+    virtual void RHISyncCopyContext(RHIFence* pFence, uint64_t semaphore) const = 0;
+    virtual void RHIBatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts) = 0;
+    virtual void RHIReleaseGraphicsContext(RHIGraphicsContext* pContext) = 0;
+    virtual void RHIReleaseCopyContext(RHICopyContext* pContext) = 0;
     
     // virtual void BeginFrame(RHIFrameResource* pFrameResource) = 0;
     // virtual void EndFrame() = 0;

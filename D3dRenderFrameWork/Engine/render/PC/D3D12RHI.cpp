@@ -36,7 +36,7 @@ void D3D12RHI::Initialize(const RHIConfiguration& configuration)
     mPipelineStateManager->Initialize(mDevice.get());
     mCommandObjectPool->Initialize(mDevice.get(), COMMAND_LIST_CAPACITY, COMMAND_ALLOCATOR_CAPACITY);
     mRootSignatureManager->Initialize(mDevice.get());
-    mRingCBufferAllocator->Initialize(mDevice.get(), 8ull * 1024 * 1024); // TODO:
+    mRingCBufferAllocator->Initialize(mDevice.get(), 64ull * 1024 * 1024); // TODO:
     mBuddyCBufferAllocator->Initialize(mDevice.get(), 2ull * 1024 * 1024); // TODO:
     mStagingBufferAllocator->Initialize(mDevice.get(), 64ull * 1024 * 1024);   // 64MB
 
@@ -315,13 +315,24 @@ std::unique_ptr<RHISwapChain> D3D12RHI::RHICreateSwapChain(const RHISwapChainDes
     return std::make_unique<D3D12SwapChain>(std::move(pSwapChain), std::move(renderTargets), desc.mNumBackBuffers);
 }
 
-void D3D12RHI::UpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset,
-                                   uint64_t size)
+void D3D12RHI::RHIReleaseConstantBuffers(RHIConstantBuffer** pCBuffers, uint32_t numCBuffers)
+{
+	for (uint32_t i = 0; i < numCBuffers; ++i)
+	{
+        D3D12ConstantBuffer* pNativeConstantBuffer = static_cast<D3D12ConstantBuffer*>(pCBuffers[i]->GetBuffer());
+        mBuddyCBufferAllocator->Free(pNativeConstantBuffer->Offset());
+        delete pCBuffers[i];
+        pCBuffers[i] = nullptr;
+	}
+}
+
+void D3D12RHI::RHIUpdateStagingBuffer(RHIStagingBuffer* pBuffer, const void* pData, uint64_t offset,
+                                      uint64_t size)
 {
     static_cast<D3D12StagingBuffer*>(pBuffer->GetBuffer())->Update(pData, offset, size);
 }
 
-void D3D12RHI::UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap)
+void D3D12RHI::RHIUpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHITextureDesc& desc, const void* pData, uint8_t mipmap)
 {
     D3D12ConstantBuffer* pNativeBuffer = static_cast<D3D12ConstantBuffer*>(pStagingBuffer->GetBuffer());
     const byte* pSrc = static_cast<const byte*>(pData);
@@ -357,19 +368,19 @@ void D3D12RHI::UpdateStagingTexture(RHIStagingBuffer* pStagingBuffer, const RHIT
 	}
 }
 
-void D3D12RHI::UpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size)
+void D3D12RHI::RHIUpdateConstantBuffer(RHIConstantBuffer* pBuffer, const void* pData, uint64_t offset, uint64_t size)
 {
     static_cast<D3D12ConstantBuffer*>(pBuffer->GetBuffer())->Update(pData, offset, size);
 }
 
-void D3D12RHI::CreateGraphicsContext(RHIGraphicsContext** ppContext)
+void D3D12RHI::RHICreateGraphicsContext(RHIGraphicsContext** ppContext)
 {
     D3D12GraphicsContext* pD3D12GraphicsContext = new D3D12GraphicsContext{};
     pD3D12GraphicsContext->Initialize(&mCommandContext, mCommandObjectPool->ObtainCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT), mStagingBufferAllocator->GetD3D12Resource());
     *ppContext = pD3D12GraphicsContext;
 }
 
-void D3D12RHI::CreateCopyContext(RHICopyContext** ppContext)
+void D3D12RHI::RHICreateCopyContext(RHICopyContext** ppContext)
 {
     D3D12CopyContext* pD3D12CopyContext = new D3D12CopyContext{};
     //D3D12CopyCommandContext* pCommandContext = new D3D12CopyCommandContext();
@@ -379,17 +390,17 @@ void D3D12RHI::CreateCopyContext(RHICopyContext** ppContext)
     *ppContext = pD3D12CopyContext;
 }
 
-void D3D12RHI::CreateComputeContext(RHIComputeContext** ppContext)
+void D3D12RHI::RHICreateComputeContext(RHIComputeContext** ppContext)
 {
 }
 
-void D3D12RHI::ResetGraphicsContext(RHIGraphicsContext* pContext)
+void D3D12RHI::RHIResetGraphicsContext(RHIGraphicsContext* pContext)
 {
     D3D12GraphicsContext* pD3D12Context = static_cast<D3D12GraphicsContext*>(pContext);
     pD3D12Context->Reset(mCommandObjectPool->ObtainCommandList(D3D12_COMMAND_LIST_TYPE_DIRECT));
 }
 
-void D3D12RHI::SubmitRenderCommands(RHIGraphicsContext* pContext)
+void D3D12RHI::RHISubmitRenderCommands(RHIGraphicsContext* pContext)
 {
     D3D12GraphicsContext* pNativeContext = static_cast<D3D12GraphicsContext*>(pContext);
     ID3D12GraphicsCommandList* pCommandList = pNativeContext->mCommandList;
@@ -423,18 +434,18 @@ void D3D12RHI::SubmitRenderCommands(RHIGraphicsContext* pContext)
     mCommandObjectPool->ReleaseCommandList(D3D12_COMMAND_LIST_TYPE_DIRECT, pCommandList);
 }
 
-void D3D12RHI::SyncGraphicContext(RHIFence* pFence, uint64_t semaphore)
+void D3D12RHI::RHISyncGraphicContext(RHIFence* pFence, uint64_t semaphore)
 {
     mDirectQueue->Signal(static_cast<D3D12Fence*>(pFence)->GetD3D12Fence(), semaphore);
 }
 
-void D3D12RHI::ResetCopyContext(RHICopyContext* pContext) const
+void D3D12RHI::RHIResetCopyContext(RHICopyContext* pContext) const
 {
     D3D12CopyContext* pD3D12Context = static_cast<D3D12CopyContext*>(pContext);
     pD3D12Context->Reset(mCommandObjectPool->ObtainCommandList(D3D12_COMMAND_LIST_TYPE_COPY)); // can we delay synchronize?
 }
 
-void D3D12RHI::SubmitCopyCommands(RHICopyContext* pContext)
+void D3D12RHI::RHISubmitCopyCommands(RHICopyContext* pContext)
 {
     D3D12CopyContext* pNativeContext = static_cast<D3D12CopyContext*>(pContext);
     ID3D12GraphicsCommandList* pCommandList = pNativeContext->mCommandList;
@@ -467,12 +478,12 @@ void D3D12RHI::SubmitCopyCommands(RHICopyContext* pContext)
     mCommandObjectPool->ReleaseCommandList(D3D12_COMMAND_LIST_TYPE_COPY, pCommandList);
 }
 
-void D3D12RHI::SyncCopyContext(RHIFence* pFence, uint64_t semaphore) const
+void D3D12RHI::RHISyncCopyContext(RHIFence* pFence, uint64_t semaphore) const
 {
     mCopyQueue->Signal(static_cast<D3D12Fence*>(pFence)->GetD3D12Fence(), semaphore);
 }
 
-void D3D12RHI::BatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts)
+void D3D12RHI::RHIBatchCopyCommands(RHICopyContext** pContexts, uint32_t numContexts)
 {
     D3D12CopyContext* pNativeContext = static_cast<D3D12CopyContext*>(pContexts[0]);
     ID3D12CommandAllocator* pAllocator = pNativeContext->mCommandAllocator;
@@ -529,14 +540,14 @@ void D3D12RHI::BatchCopyCommands(RHICopyContext** pContexts, uint32_t numContext
 	delete[] pCommandLists;
 }
 
-void D3D12RHI::ReleaseGraphicsContext(RHIGraphicsContext* pContext)
+void D3D12RHI::RHIReleaseGraphicsContext(RHIGraphicsContext* pContext)
 {
     D3D12GraphicsContext* pNativeContext = static_cast<D3D12GraphicsContext*>(pContext);
     pNativeContext->Reset(nullptr);
     mCommandObjectPool->ReleaseCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, pNativeContext->mCommandAllocator);
 }
 
-void D3D12RHI::ReleaseCopyContext(RHICopyContext* pContext)
+void D3D12RHI::RHIReleaseCopyContext(RHICopyContext* pContext)
 {
     D3D12CopyContext* pNativeContext = static_cast<D3D12CopyContext*>(pContext);
     pNativeContext->Reset(nullptr);
@@ -618,13 +629,15 @@ void D3D12RHI::GetShaderInputElements(ID3D12ShaderReflection* pReflector, std::v
     D3D12_SHADER_DESC shaderDesc;
     pReflector->GetDesc(&shaderDesc);
     D3D12_SIGNATURE_PARAMETER_DESC inputDesc;
-    inputElements.resize(shaderDesc.InputParameters);
+    inputElements.reserve(shaderDesc.InputParameters);
     for (uint32_t i = 0; i < shaderDesc.InputParameters; i++)
     {
         pReflector->GetInputParameterDesc(i, &inputDesc);
 
-        inputElements[i] = {};
-        inputElements[i].mSemanticName = inputDesc.SemanticName;
+        std::string semanticName = inputDesc.SemanticName;
+        if (semanticName == "SV_VertexID") continue;
+        inputElements.emplace_back();
+        inputElements[i].mSemanticName = std::move(semanticName);
         inputElements[i].mSemanticIndex = inputDesc.SemanticIndex;
         inputElements[i].mInputSlot = 0;
         inputElements[i].mFormat = GetFormatFromSignature(inputDesc);

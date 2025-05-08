@@ -18,6 +18,13 @@ enum class RenderPass : uint8_t
     DEFERRED_LIGHTING = 0b1000000,
 };
 
+enum class SkyboxType
+{
+    SKYBOX_CUBE_MAP,
+    SKYBOX_PANORAMA,
+    SKYBOX_PROCEDURAL
+};
+
 struct RenderItem
 {
     Matrix4x4 mModel = DirectX::XMMatrixIdentity();   // TODO: Support sub mesh
@@ -30,7 +37,8 @@ struct RenderList final
 {
     //FrameBufferRef mFrameBuffer;  // nullptr to force rendering to screen.
     CameraConstants mCameraConstants;
-    Blob* mPassConstant;
+    RHIShader* mSkyboxShader;
+    SkyboxType mSkyBoxType;
     uint8_t mStencilValue;
     Float4 mBackGroundColor;
     std::vector<RenderItem> mOpaqueList;

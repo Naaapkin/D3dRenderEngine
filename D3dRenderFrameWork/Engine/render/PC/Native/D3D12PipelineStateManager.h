@@ -61,6 +61,7 @@ inline ID3D12PipelineState* D3D12PipelineStateManager::GetOrCreateGraphicsPSO(
     InitD3D12PipelineStateDesc(pRootSignature, desc, d3d12Desc);
     ID3D12PipelineState* pPSO = mDevice->CreateGraphicsPipelineStateObject(d3d12Desc).Detach();
     mPipelineStateTable.emplace(mPSOInitializers.data() + index, pPSO);
+    delete[] d3d12Desc.InputLayout.pInputElementDescs;
     return pPSO;
 }
 
@@ -68,7 +69,7 @@ inline void D3D12PipelineStateManager::InitD3D12PipelineStateDesc(ID3D12RootSign
     D3D12_GRAPHICS_PIPELINE_STATE_DESC& d3d12Desc)
 {
     d3d12Desc.pRootSignature = pRootSignature;
-    RHIShader& shader = *psoDesc.mShader;
+    const RHIShader& shader = *psoDesc.mShader;
     const Blob& vsBinary = shader.VertexShader();
     const Blob& hsBinary = shader.HullShader();
     const Blob& dsBinary = shader.DomainShader();
@@ -80,7 +81,7 @@ inline void D3D12PipelineStateManager::InitD3D12PipelineStateDesc(ID3D12RootSign
     d3d12Desc.GS = { gsBinary.Binary(), gsBinary.Size() };
     d3d12Desc.PS = { psBinary.Binary(), psBinary.Size() };
     const std::vector<ShaderInput>& inputElems = shader.GetInputElements();
-    D3D12_INPUT_ELEMENT_DESC* d3dInputElems = inputElems.size() ? new D3D12_INPUT_ELEMENT_DESC[inputElems.size()] : nullptr;
+    D3D12_INPUT_ELEMENT_DESC* d3dInputElems = new D3D12_INPUT_ELEMENT_DESC[inputElems.size()];
     for (int i = 0; i < inputElems.size(); ++i)
     {
         d3dInputElems[i].Format = ::ConvertToDXGIFormat(inputElems[i].mFormat);

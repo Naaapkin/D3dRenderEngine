@@ -9,6 +9,7 @@ cbuffer CameraBuffer : register(b1)
 {
     float4x4 ViewProj;
     float4x4 ViewProj_I;
+    float4 ScreenParams;
 }
 
 BEGIN_MATERIAL_DATA(b2)
@@ -25,16 +26,15 @@ END_MATERIAL_DATA
 
 static const float2 positions[4] =
 {
-    float2(-1.0, 1.0), // 左上
-    float2(1.0, 1.0), // 右上
     float2(-1.0, -1.0), // 左下
-    float2(1.0, -1.0) // 右下
+    float2(1.0, -1.0), // 右下
+    float2(1.0, 1.0), // 右上
+    float2(-1.0, 1.0) // 左上
 };
 
-float4 VsMain(uint vertexID : SV_VertexID)
-    {
-
-    return float4(positions[vertexID], 0, 1);
+float4 VsMain(uint vertexID : SV_VertexID) : SV_POSITION
+{
+    return float4(positions[vertexID], 1, 1);
 }
 
 // RGB wavelengths
@@ -132,7 +132,7 @@ float4 RenderSky(float4 positionCS)
     float3 cOut = float3(0.0, 0.0, 0.0);
 
     float3 groundColor = float3(0.0, 0.0, 0.0);
-    float3 skyColor = float3(0.0, 0.0, 0.0);
+    float3 skyColor = float3(0.6902f, 0.7686f, 0.8706f);
 
     // Modification for per-pixel procedural sky:
     // Contrary to the legacy version that is run per-vertex, this version is per pixel.
@@ -235,12 +235,31 @@ float4 RenderSky(float4 positionCS)
     return float4(col * SkyIntensity, 1.0);
 }
 
-float4 FragBaking(float4 positionCS : SV_POSITION) : SV_Target
+float4 PsMain(float4 positionCS : SV_POSITION) : SV_Target
 {
-    return RenderSky(positionCS);
-}
+	// 将屏幕位置转换为 [-1, 1] 范围的NDC坐标
+    float2 uv = positionCS.xy / ScreenParams.xy; // 仅用于参考
+    float4 ndc = float4(
+        uv * 2.0f - 1.0f,
+        1.0f,
+        1.0f
+    );
 
-float4 FragRender(float4 positionCS : SV_POSITION) : SV_Target
-{
-    return RenderSky(positionCS);
+    // 使用 ViewProj 的逆矩阵从NDC坐标反推 view-space 方向
+    float4 viewDirH = mul(ndc, ViewProj_I);
+    float3 viewDir = normalize(viewDirH.xyz);
+
+    // 1. 计算天空基础颜色（地平线渐变）
+    float horizon = smoothstep(-0.1, 0.1, viewDir.y); // 地平线过渡
+    float3 skyColor = lerp(
+        ambientLight * ambientIntensity,
+		float3(0.6902f, 0.7686f, 0.8706f),
+        horizon
+    );
+
+    // 2. 添加主光源（太阳光晕）
+    float sunDot = saturate(dot(viewDir, mainLightDir.xyz));
+    float sunGlow = pow(sunDot, 32.0) * mainLightColor.a; // 光晕强度
+    skyColor += mainLightColor.rgb * sunGlow;
+    return float4(viewDir, 1);
 }

@@ -171,11 +171,11 @@ public:
     virtual void SetRenderTargetsAndDepthStencil(RHIRenderTarget** renderTargets, uint32_t numRenderTargets, RHIDepthStencil* depthStencilTarget) = 0;
     virtual void SetVertexBuffers(RHIVertexBuffer** vertexBuffers, uint8_t numVertexBuffers) = 0;
     virtual void SetIndexBuffer(const RHIIndexBuffer* pIndexBuffer) = 0;
-    virtual void DrawIndexed(uint32_t indexPerInstance, uint32_t baseIndex) = 0;
-    virtual void DrawIndexedInstanced(uint32_t indexPerInstance, uint32_t baseIndex, uint32_t instanceCount) = 0;
-    virtual void EndDrawCalls() = 0;
+    virtual void DrawInstanced(uint32_t verticesPerInstance, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance) = 0;
+    virtual void DrawIndexedInstanced(uint32_t indicesPerInstance, uint32_t baseIndex, uint32_t baseVertex, uint32_t instanceCount, uint32_t baseInstance) = 0;
+    virtual void EndBindings() = 0;
     virtual void InsertFence(RHIFence* pFence, uint64_t semaphore) = 0;
-    virtual void BeginDrawCall() = 0;
+    virtual void BeginBinding() = 0;
 
     RHIGraphicsContext() = default;
 };

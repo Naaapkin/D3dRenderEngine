@@ -15,7 +15,7 @@ struct PassConstants
     Float4 mTime; // deltaTime, time, sin(time), cos(time)
 
     // these should be in per-camera constants
-    Float4 mViewport; // width, height, preserved, preserved
+    Float4 mScreenParams; // width, height, preserved, preserved
 };
 
 class Renderer : public Singleton<Renderer>
@@ -42,6 +42,19 @@ public:
         mRenderLists.reserve(mRenderLists.size() + numRenderLists);
         mRenderLists.insert(mRenderLists.end(), renderLists.get(), renderLists.get() + numRenderLists);
     }
+    void setLightConstants(const LightConstant& lightConstants) const
+    {
+        mPassConstants->mLightConstant = lightConstants;
+    }
+    void setTime(float deltaTime, float time) const
+    {
+        if (mPassConstants->mTime.y == time) return;
+        mPassConstants->mTime = { deltaTime, time, std::sin(time), std::cos(time) };
+    }
+    void setFogConstants(const FogConstant& fogConstants) const
+    {
+        mPassConstants->mFogConstant = fogConstants;
+    }
     VertexBufferRef allocVertexBuffer(uint32_t numVertices, uint32_t vertexSize);
     IndexBufferRef allocIndexBuffer(uint32_t numIndices, Format indexFormat);
     TextureRef allocTexture2D(Format format, uint32_t width, uint32_t height, uint8_t mipLevels);
@@ -58,32 +71,23 @@ public:
     NON_MOVEABLE(Renderer);
     
 private:
-    uint32_t allocGPUResource(RHIObject* pObject);
-    //struct RHIRefCounter
-    //{
-	   // RHIRefCounter(std::unique_ptr<RHIObject> object, uint32_t refCount)
-		  //  : mObject(std::move(object)),
-		  //    mRefCount(refCount)
-	   // {
-	   // }
-
-	   // std::unique_ptr<RHIObject> mObject;
-    //    uint32_t mRefCount;
-    //};
-    void createBuiltinResources();
-    void beginFrame(RHIGraphicsContext* renderContext);
-    // sphere mode only now
-    void skyboxPass(RHIGraphicsContext* pRenderContext, const MaterialInstance& skyboxMaterial, const CameraConstants& cameraConstants);
-    void depthPrePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
-    void opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
-    void postRender();
-
     struct RenderContext
     {
         std::unique_ptr<RHIGraphicsContext> mGraphicContext;
         std::unique_ptr<RHIFence> mFenceGPU;
+        std::vector<RHIConstantBuffer*> mReleasingCBuffers;
         uint64_t mFenceCPU;
     };
+    uint32_t allocGPUResource(RHIObject* pObject);
+    void createBuiltinResources();
+    void beginFrame(RenderContext* pRenderContext);
+    // sphere mode only now
+    void skyboxPass(RHIGraphicsContext* pRenderContext, const RHIShader& skyboxShader, SkyboxType type, const CameraConstants& cameraConstants);
+    void depthPrePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
+    void opaquePass(RHIGraphicsContext* pRenderContext, const std::vector<RenderItem>& renderItems, const CameraConstants& cameraConstants);
+    void postRender();
+
+    static RHIRef<RHIIndexBuffer> sQuadMeshIndexBuffer;
 
     RHI* mRenderHardwareInterface;
     
