@@ -71,7 +71,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;DEBUG;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;DEBUG;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir)</AdditionalIncludeDirectories>
@@ -104,7 +104,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="Engine\common\Format.h" />
     <ClInclude Include="Engine\common\helper.h" />
     <ClInclude Include="Engine\common\PC\WFunc.h" />
     <ClInclude Include="Engine\common\Exception.h" />
@@ -113,61 +112,62 @@
     <ClInclude Include="Engine\math\math.h" />
     <ClInclude Include="Engine\math\PC\Vector2.h" />
     <ClInclude Include="Engine\math\PC\Vector3.h" />
-    <ClInclude Include="Engine\memory\BlockAllocator.h" />
-    <ClInclude Include="Engine\memory\DynamicBlockAllocator.h" />
-    <ClInclude Include="Engine\memory\BuddyAllocator.h" />
-    <ClInclude Include="Engine\memory\DynamicLinearAllocator.h" />
-    <ClInclude Include="Engine\memory\LinearAllocator.h" />
-    <ClInclude Include="Engine\memory\RingAllocator.h" />
+    <ClInclude Include="Engine\Memory\BlockAllocator.h" />
+    <ClInclude Include="Engine\Memory\DynamicBlockAllocator.h" />
+    <ClInclude Include="Engine\Memory\BuddyAllocator.h" />
+    <ClInclude Include="Engine\Memory\DynamicLinearAllocator.h" />
+    <ClInclude Include="Engine\Memory\LinearAllocator.h" />
+    <ClInclude Include="Engine\Memory\RingAllocator.h" />
     <ClInclude Include="Engine\pch.h" />
-    <ClInclude Include="Engine\render\Blob.h" />
-    <ClInclude Include="Engine\render\BuiltinShaderDef.h" />
-    <ClInclude Include="Engine\render\DynamicRHI.h" />
-    <ClInclude Include="Engine\render\Material.h" />
-    <ClInclude Include="Engine\render\MeshData.h" />
-    <ClInclude Include="Engine\render\PC\d3dx12.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12ConstantBufferAllocator.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12DescriptorHeap.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12DescriptorAllocator.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12Device.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12EnumConversions.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12Resource.h" />
-    <ClInclude Include="Engine\render\PC\Private\D3D12CommandContext.h" />
-    <ClInclude Include="Engine\render\PC\Private\D3D12GraphicsContext.h" />
-    <ClInclude Include="Engine\render\PC\Private\D3D12RenderTarget.h" />
-    <ClInclude Include="Engine\render\PC\Private\D3D12SwapChain.h" />
-    <ClInclude Include="Engine\render\PC\Private\ResourceStateTracker.h" />
-    <ClInclude Include="Engine\render\PC\D3D12RHI.h" />
-    <ClInclude Include="Engine\render\PC\D3dUtil.h" />
-    <ClInclude Include="Engine\render\PC\dxgi.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12CommandObjectPool.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12PipelineStateManager.h" />
-    <ClInclude Include="Engine\render\PC\Native\D3D12RootSignatureManager.h" />
-    <ClInclude Include="Engine\render\PC\Resource\D3D12Fence.h" />
-    <ClInclude Include="Engine\render\PC\Resource\D3D12Resources.h" />
-    <ClInclude Include="Engine\render\Renderer.h" />
-    <ClInclude Include="Engine\render\RenderItem.h" />
-    <ClInclude Include="Engine\render\RenderResource.h" />
-    <ClInclude Include="Engine\render\RHIConfiguration.h" />
-    <ClInclude Include="Engine\render\RHIDefination.h" />
-    <ClInclude Include="Engine\render\RHIDescriptors.h" />
-    <ClInclude Include="Engine\render\RHIPipelineStateInializer.h" />
-    <ClInclude Include="Engine\render\Shader.h" />
-    <ClInclude Include="Engine\render\SubMesh.h" />
+    <ClInclude Include="Engine\Render\Blob.h" />
+    <ClInclude Include="Engine\Render\DynamicRHI.h" />
+    <ClInclude Include="Engine\Render\Material.h" />
+    <ClInclude Include="Engine\Render\MeshData.h" />
+    <ClInclude Include="Engine\Render\PC\d3dx12.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12ConstantBufferAllocator.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12DescriptorHeap.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12DescriptorAllocator.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12Device.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12EnumConversions.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12Resource.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12CommandContext.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12GraphicsContext.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12RenderTarget.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12SwapChain.h" />
+    <ClInclude Include="Engine\Render\PC\Private\ResourceStateTracker.h" />
+    <ClInclude Include="Engine\Render\PC\D3D12RHI.h" />
+    <ClInclude Include="Engine\Render\PC\D3dUtil.h" />
+    <ClInclude Include="Engine\Render\PC\dxgi.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12CommandObjectPool.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12PipelineStateManager.h" />
+    <ClInclude Include="Engine\Render\PC\Native\D3D12RootSignatureManager.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12Fence.h" />
+    <ClInclude Include="Engine\Render\PC\Private\D3D12Resources.h" />
+    <ClInclude Include="Engine\Render\Renderer.h" />
+    <ClInclude Include="Engine\Render\RenderItem.h" />
+    <ClInclude Include="Engine\Render\RenderResource.h" />
+    <ClInclude Include="Engine\Render\RHIDefination.h" />
+    <ClInclude Include="Engine\Render\RHIDescriptors.h" />
+    <ClInclude Include="Engine\Render\RHIPipelineStateInializer.h" />
+    <ClInclude Include="Engine\Render\Shader.h" />
+    <ClInclude Include="Engine\Render\SubMesh.h" />
     <ClInclude Include="Engine\Window\Frame.h" />
     <ClInclude Include="Engine\Window\WFrame.h" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Assets\Shaders\source\NeoInstanceBlinnPhong.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Assets\Shaders\source\common\Common.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Assets\Shaders\source\InstanceOpaque.hlsl">
+    <FxCompile Include="Assets\Shaders\source\NeoInstanceOpaque.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VsMain</EntryPointName>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Assets\Shaders\source\Opaque.hlsl">
+    <FxCompile Include="Assets\Shaders\source\NeoOpaque.hlsl">
       <FileType>Document</FileType>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VsMain</EntryPointName>
       <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">6.0</ShaderModel>
@@ -193,13 +193,13 @@
     <ClCompile Include="Engine\game\PC\EventDispatcherWin.cpp" />
     <ClCompile Include="Engine\math\PC\Vector2.cpp" />
     <ClCompile Include="Engine\math\PC\Vector3.cpp" />
-    <ClCompile Include="Engine\render\PC\Private\D3D12CommandContext.cpp" />
-    <ClCompile Include="Engine\render\PC\Private\D3D12GraphicsContext.cpp" />
-    <ClCompile Include="Engine\render\PC\Private\ResourceStateTracker.cpp" />
-    <ClCompile Include="Engine\render\PC\D3D12RHI.cpp" />
-    <ClCompile Include="Engine\render\PC\D3dUtil.cpp" />
-    <ClCompile Include="Engine\render\PC\Resource\D3D12Resources.cpp" />
-    <ClCompile Include="Engine\render\Renderer.cpp" />
+    <ClCompile Include="Engine\Render\PC\Private\D3D12CommandContext.cpp" />
+    <ClCompile Include="Engine\Render\PC\Private\D3D12GraphicsContext.cpp" />
+    <ClCompile Include="Engine\Render\PC\Private\ResourceStateTracker.cpp" />
+    <ClCompile Include="Engine\Render\PC\D3D12RHI.cpp" />
+    <ClCompile Include="Engine\Render\PC\D3dUtil.cpp" />
+    <ClCompile Include="Engine\Render\PC\Private\D3D12Resources.cpp" />
+    <ClCompile Include="Engine\Render\Renderer.cpp" />
     <ClCompile Include="Engine\Window\Frame.cpp" />
     <ClCompile Include="Engine\Window\WFrame.cpp" />
     <ClCompile Include="GamePlay\main.cpp">
@@ -277,7 +277,7 @@
       <AdditionalIncludeDirectories>D:\Projects\CPP\D3dRenderFramework\D3dRenderFrameWork\</AdditionalIncludeDirectories>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
-    <FxCompile Include="Assets\Shaders\source\PreDepth.hlsl">
+    <FxCompile Include="Assets\Shaders\source\NeoPreDepth.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VsMain</EntryPointName>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Vertex</ShaderType>
@@ -292,7 +292,7 @@
   <ItemGroup>
     <Content Include="Assets\Configurations\config.ini" />
     <None Include="Assets\Configurations\shader.manif" />
-    <FxCompile Include="Assets\Shaders\source\skybox.hlsl">
+    <FxCompile Include="Assets\Shaders\source\NeoSkybox.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <FileType>Document</FileType>
       <EntryPointName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">VsMain</EntryPointName>

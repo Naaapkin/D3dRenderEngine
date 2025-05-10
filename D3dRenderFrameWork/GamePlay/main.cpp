@@ -1,7 +1,8 @@
 #include "Engine/pch.h"
-#include <Engine/common/Exception.h>
+#ifdef RENDER_UNIT_TEST
+#include "Engine/common/Exception.h"
 
-#include "Engine/render/Renderer.h"
+#include "Engine/Render/Renderer.h"
 #include "Engine/Window/WFrame.h"
 
 namespace Temp
@@ -46,17 +47,29 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Renderer& renderer = Renderer::GetInstance();
     renderer.initialize();
 
+    enum TestShaders
+    {
+        TS_INS_OPAQUE = 0,
+	    TS_OPAQUE = 1,
+        TS_SKYBOX = 2,
+        TS_INS_BLINN_PHONG = 3
+    };
+
     // 加载着色器
     std::vector<String> paths{
-        TEXT("Assets/Shaders/source/Opaque.hlsl"),
-		TEXT("Assets/Shaders/source/skybox.hlsl")
+        TEXT("Assets/Shaders/source/NeoInstanceOpaque.hlsl"),
+        TEXT("Assets/Shaders/source/NeoOpaque.hlsl"),
+		TEXT("Assets/Shaders/source/NeoSkybox.hlsl"),
+        TEXT("Assets/Shaders/source/NeoInstanceBlinnPhong.hlsl"),
     };
     std::vector<uint8_t> activeShaders{
+        ShaderType::VERTEX | ShaderType::PIXEL,
+        ShaderType::VERTEX | ShaderType::PIXEL,
         ShaderType::VERTEX | ShaderType::PIXEL,
         ShaderType::VERTEX | ShaderType::PIXEL
     };
 
-    RHIShader** shaders = new RHIShader * [paths.size()];
+    ShaderRef* shaders = new ShaderRef[paths.size()];
     for (uint32_t i = 0; i < activeShaders.size(); i++)
     {
         String& path = paths[i];
@@ -65,19 +78,64 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         Temp::LoadShaderFile(paths[i], &data, &size);
         Blob shaderSource{ data, size };
         String name = ::GetFileNameFromPath(path);
-        std::unique_ptr<RHIShader> pShader = renderer.compileShader(shaderSource, static_cast<ShaderType>(activeShaders[i]), &path);
-        shaders[i] = renderer.registerShader(name, std::move(pShader));
+        shaders[i] = renderer.compileAndRegisterShader(name, shaderSource, static_cast<ShaderType>(activeShaders[i]), &path);
         delete[] data; // 释放内存
     }
 
+    // load pre-depth shader
+    if (false)
+	{
+        String path = TEXT("Assets/Shaders/source/NeoPreDepth.hlsl");
+		char* data;
+    	uint64_t size;
+    	Temp::LoadShaderFile(path, &data, &size);
+        Blob shaderSource{ data, size };
+        renderer.enablePreDepth(renderer.compileShader(shaderSource, ShaderType::VERTEX, &path));
+	}
+
     // 创建材质
-    std::unique_ptr<Material> material = Renderer::createMaterial(shaders[0]);
-    material->mCullMode = CullMode::NONE;
-    material->mDrawMode = DrawMode::WIREFRAME;
-    material->mStencilTest = StencilTestDesc::Default();
-    material->mDepthTest = DepthTestDesc::Default();
-    material->mBlend = BlendDesc::Color();
-	std::unique_ptr<MaterialInstance> materialInstance = renderer.createMaterialInstance(*material);
+    std::unique_ptr<Material> skyboxMaterial = Renderer::createMaterial(shaders[TS_SKYBOX]);
+    std::unique_ptr<MaterialInstance> matInsSkybox = renderer.createMaterialInstance(*skyboxMaterial);
+
+    // 修改材质数据
+    uint8_t skyboxConstantID = matInsSkybox->GetCBufferIndex(TEXT("SkyConstants"));
+    if (skyboxConstantID != MAXUINT8)
+    {
+        struct
+        {
+            float mSkyIntensity = 1.2f;
+            float mSunSize = 0.04f;
+            float mSunSizeConvergence = 10.0;
+            float mAtmosphereThickness = 2.0f;
+            Float4 mSkyTint = { 0.6902f, 0.7686f, 0.8706f, 1 };
+            Float4 mGroundColor{ 0.3f, 0.3f, 0.4f, 1.0f };
+        } skyConstants;
+	    matInsSkybox->UpdateConstantBuffer(skyboxConstantID, &skyConstants, sizeof(skyConstants));
+    }
+
+    std::unique_ptr<Material> opaqueMaterial = Renderer::createMaterial(shaders[TS_OPAQUE]);
+    opaqueMaterial->mCullMode = CullMode::BACK;
+    opaqueMaterial->mDrawMode = DrawMode::SOLID;
+    opaqueMaterial->mStencilTest = StencilTestDesc::Default();
+    opaqueMaterial->mDepthTest = DepthTestDesc::Default();
+    opaqueMaterial->mBlend = BlendDesc::Disabled();
+	std::unique_ptr<MaterialInstance> matInsOpaque = renderer.createMaterialInstance(*opaqueMaterial);
+
+    std::unique_ptr<Material> opaqueInstanceMaterial = Renderer::createMaterial(shaders[TS_INS_OPAQUE]);
+    opaqueInstanceMaterial->mCullMode = CullMode::BACK;
+    opaqueInstanceMaterial->mDrawMode = DrawMode::SOLID;
+    opaqueInstanceMaterial->mStencilTest = StencilTestDesc::Default();
+    opaqueInstanceMaterial->mDepthTest = DepthTestDesc::Default();
+    opaqueInstanceMaterial->mBlend = BlendDesc::Disabled();
+    std::unique_ptr<MaterialInstance> matInsOpaqueInstance = renderer.createMaterialInstance(*opaqueInstanceMaterial);
+
+    std::unique_ptr<Material> opaqueLitInstanceMaterial = Renderer::createMaterial(shaders[TS_INS_BLINN_PHONG]);
+    opaqueLitInstanceMaterial->mCullMode = CullMode::BACK;
+    opaqueLitInstanceMaterial->mDrawMode = DrawMode::SOLID;
+    opaqueLitInstanceMaterial->mStencilTest = StencilTestDesc::Default();
+    opaqueLitInstanceMaterial->mDepthTest = DepthTestDesc::Default();
+    opaqueLitInstanceMaterial->mBlend = BlendDesc::Disabled();
+    std::unique_ptr<MaterialInstance> matInsOpaqueLitInstance = renderer.createMaterialInstance(*opaqueLitInstanceMaterial);
 
     // 准备CPU资源
 	Mesh cubeMesh = MeshPrototype::CreateCubeMesh();
@@ -94,7 +152,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     renderer.updateIndexBuffer(indexBufferCPU.data(), indexBufferCPU.size() * sizeof(uint32_t), indexBufferGPU, true);
     renderer.updateTexture(cubeTexCPU, cubeTexGPU, 0, true);
 
-    materialInstance->SetTexture(0, TextureDimension::TEXTURE2D, cubeTexGPU);
+    matInsOpaque->SetTexture(0, ResourceDimension::TEXTURE2D, cubeTexGPU);
 
     LightConstant lightConstants{};
     lightConstants.mAmbientLight = { 0, 0, 0 };
@@ -107,28 +165,74 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     Blob lightConstantBuffer{ &lightConstants, sizeof(LightConstant) };
 
     const std::vector<SubMesh> subMeshes = cubeMesh.subMeshes();
+
+#ifdef ENABLE_LEGACY_RENDER_LOOP
     RenderItem renderItem{};
-	renderItem.mMaterial = materialInstance.get();
+	renderItem.mMaterial = matInsOpaque.get();
 	renderItem.mMeshData.mVertexBuffer = vertexBufferGPU;
 	renderItem.mMeshData.mIndexBuffer = indexBufferGPU;
-	renderItem.mMeshData.mVertexCount = cubeMesh.numVertex();
-	renderItem.mMeshData.mIndexCount = cubeMesh.numIndex();
     renderItem.mMeshData.mSubMeshCount = 1;
     renderItem.mMeshData.mSubMeshes.reset(new SubMesh[subMeshes.size()]);
+    renderItem.mModel = Matrix4x4::Identity();
+    renderItem.mModelInverse = Matrix4x4::Identity();
     memcpy(renderItem.mMeshData.mSubMeshes.get(), subMeshes.data(), subMeshes.size() * sizeof(SubMesh));
 
 	RenderList renderList{};
-    renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 0, 5, -10, 1 },
+    renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 0, -5, -10, 1 },
         { 0, 0, 0, 1 },
         { 0, 1, 0, 0 });
     renderList.mCameraConstants.mViewInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mView);
+    renderList.mCameraConstants.mViewport = renderer.getResolution();
 
     renderList.mBackGroundColor = { 0.6902f, 0.7686f, 0.8706f, 1.0f };
-    renderList.mCameraConstants.mProjection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1280.0f / 720.0f, 0.3f, 1000.0f);
+    renderList.mCameraConstants.mProjection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1280.0f / 720.0f, 1000.0f, 0.3f);
     renderList.mCameraConstants.mProjectionInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mProjection);
     renderList.mOpaqueList.push_back(renderItem);
     renderList.mSkyBoxType = SkyboxType::SKYBOX_PROCEDURAL;
-    renderList.mSkyboxShader = shaders[1];
+    renderList.mSkyboxMaterial = matInsSkybox.get();
+#else
+    Float2 resolution = renderer.getResolution();
+    NeoRenderQueue renderQueue{};
+    renderQueue.mRenderTarget = RenderTargetRef::NullRef();
+    renderQueue.mDepthStencil = DepthStencilRef::NullRef();
+    renderQueue.mNumOverlays = 0;
+    renderQueue.mSkyboxMaterial = matInsSkybox.get();
+    renderQueue.mSkyboxType = SkyboxType::NONE;
+    renderQueue.mBackGroundColor = { 0.6902f, 0.7686f, 0.8706f, 1 };
+    renderQueue.mStencilValue = 0;
+
+    NeoRenderLayer& mainCameraRenderLayer = renderQueue.mBaseLayer;
+    CameraInfo& cameraInfo = mainCameraRenderLayer.mCameraInfo;
+    cameraInfo.mClips = { 0.3f, 1000.0f };
+    cameraInfo.mScissorRect = Rect{ 0, 0, static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y) };
+    cameraInfo.mViewport = Viewport{ resolution.x, resolution.y, 0, 1 };
+    cameraInfo.mProj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1280.0f / 720.0f, 1000.0f, 0.3f);
+    cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 0, 5, -20, 1 },
+        { 0, 0, 0, 1 },
+        { 0, 1, 0, 0 });
+
+    mainCameraRenderLayer.mNumOpaqueBatches = 1;
+    mainCameraRenderLayer.mNumTransparentBatches = 0;
+    mainCameraRenderLayer.mTransparentBatches = nullptr;
+    mainCameraRenderLayer.mOpaqueBatches = new NeoRenderBatch{};
+
+    NeoRenderBatch& cubeRenderBatch = *mainCameraRenderLayer.mOpaqueBatches;
+    cubeRenderBatch.mMaterial = matInsOpaqueLitInstance.get();
+    cubeRenderBatch.mNumRenderItems = 1;
+    cubeRenderBatch.mRenderItems.reset(new NeoRenderItem{});
+
+#define INSTANCE_COUNT 900
+    NeoRenderItem& cubeRI = cubeRenderBatch.mRenderItems[0];
+    cubeRI.mIsInstanced = true;
+    cubeRI.mMeshData = new MeshData{ vertexBufferGPU, indexBufferGPU, subMeshes.data(), static_cast<uint8_t>(subMeshes.size()) };
+    cubeRI.mNumInstance = INSTANCE_COUNT;
+    cubeRI.mInstanceData = new NeoTransformConstants[INSTANCE_COUNT];
+    cubeRI.mInstanceDataStride = sizeof(NeoTransformConstants);
+
+    NeoTransformConstants* transforms = static_cast<NeoTransformConstants*>(cubeRI.mInstanceData);
+    transforms[0].mModel = DirectX::XMMatrixIdentity();
+    transforms[0].mModelInverse = DirectX::XMMatrixIdentity();
+#endif
 
     LARGE_INTEGER frequency, start, end, stamp;
     QueryPerformanceFrequency(&frequency);  // 获取计时器频率
@@ -159,23 +263,55 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         stamp = end;
         /*OutputDebugString(std::to_wstring(deltaTime).c_str());
         OutputDebugString(TEXT("\n"));*/
-        renderList.mOpaqueList[0].mModel = DirectX::XMMatrixRotationY(static_cast<float>(elapsedTime * 0.18));
-        renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
-        lightConstants.mMainLightDir.x = std::sin(elapsedTime / 4);
+
+        renderer.setTime(deltaTime, elapsedTime);
+        lightConstants.mMainLightDir.z = std::sin(elapsedTime / 4);
         lightConstants.mMainLightDir.y = -std::cos(elapsedTime / 4);
         renderer.setLightConstants(lightConstants);
 
-        /*renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 10 * static_cast<float>(std::sin(elapsedTime / 2)), 0, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
+#ifdef ENABLE_LEGACY_RENDER_LOOP
+        //renderList.mOpaqueList[0].mModel = DirectX::XMMatrixRotationY(static_cast<float>(elapsedTime * 0.18));
+        //renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
+
+        renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 10 * static_cast<float>(std::sin(elapsedTime / 2)), -5, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
             { 0, 0, 0, 1 },
             { 0, 1, 0, 0 });
-        renderList.mCameraConstants.mViewInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mView);*/
+        renderList.mCameraConstants.mViewInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mView);
 
         std::unique_ptr<RenderList[]> renderLists;
         renderLists.reset(new RenderList[1]{ renderList });
-        renderer.setTime(deltaTime, elapsedTime);
         renderer.appendRenderLists(std::move(renderLists), 1);
+        renderer.legacyRender();
+#else
+        //cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 10 * static_cast<float>(std::sin(elapsedTime / 2)), 5, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
+        //    { 0, 0, 0, 1 },
+        //    { 0, 1, 0, 0 });
+        using namespace DirectX;
+
+        const int gridSize = 30;
+        const float spacing = 1.5f; // 网格中每个方块的间距
+        const float frequency = 1.5f;
+
+        for (int i = 0; i < INSTANCE_COUNT; ++i)
+        {
+	        constexpr float amplitude = 1.0f;
+	        int xIndex = i % gridSize;
+            int zIndex = i / gridSize;
+
+            float x = (xIndex - gridSize / 2) * spacing;
+            float z = (zIndex - gridSize / 2) * spacing;
+
+            float y = std::sin(elapsedTime * frequency + (x + z) * 0.1f) * amplitude;
+
+            transforms[i].mModel = XMMatrixTranslation(x, y, z);
+            transforms[i].mModelInverse = XMMatrixInverse(nullptr, transforms[i].mModel);
+        }
+        renderer.appendRenderQueue(&renderQueue, 1);
         renderer.render();
+#endif
     }
+    renderer.terminate();
 
     return 0;
 }
+#endif

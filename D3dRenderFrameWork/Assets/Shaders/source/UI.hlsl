@@ -22,7 +22,7 @@ struct VSOutput
     float2 uv : TEXCOORD0;
 };
 
-cbuffer UIConstants : register(b1)
+cbuffer UIConstants : register(b3)
 {
     float3x3 transform;
     float4 color;
@@ -37,7 +37,7 @@ VSOutput VS(uint vertexID : SV_VertexID)
     return output;
 }
 
-Texture2D uiTexture : register(t1);
+Texture2D uiTexture : register(t0);
 
 float4 PS(VSOutput input) : SV_Target
 {
