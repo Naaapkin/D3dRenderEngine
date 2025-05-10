@@ -1,6 +1,6 @@
 ﻿#pragma once
 #ifdef WIN32
-#include "Frame.h"
+#include "Engine/Window/Frame.h"
 
 LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 
@@ -24,7 +24,6 @@ private:
 
 class WFrame : public Frame
 {
-    friend Frame& gFrame();
     friend Frame* Frame::CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen);
     
 public:

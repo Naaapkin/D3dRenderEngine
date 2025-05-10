@@ -1,16 +1,10 @@
-﻿#include <Engine/common/Exception.h>
-#include <Engine/common/PC/WFunc.h>
-#include <Engine/Window/WFrame.h>
+﻿#include "Engine/common/Exception.h"
+#include "Engine/common/PC/WFunc.h"
+#include "Engine/Window/WFrame.h"
 
 Frame* Frame::CreateFrame(const String& title, uint16_t width, uint16_t height, bool isFullScreen)
 {
     return new WFrame{ title, width, height, isFullScreen };
-}
-
-Frame& gFrame()
-{
-    WFrame frame{};
-    return frame;
 }
 
 LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
@@ -20,7 +14,7 @@ LRESULT DefaultFrameProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_NCHITTEST:
         {
-            const int res = DefWindowProc(hwnd, message, wParam, lParam);
+            const auto res = DefWindowProc(hwnd, message, wParam, lParam);
             // 禁用缩放
             if (res >= HTLEFT && res <= HTBOTTOMRIGHT) return HTBORDER;
             return res;
@@ -90,10 +84,10 @@ void WFrame::OnDpiChanged(WORD dpi)
 {
     RECT clientRect;
     GetClientRect(mWindowHandle, &clientRect);
-    float scalar = dpi / static_cast<float>(mDpi);
+    float scalar = static_cast<float>(dpi / mDpi);
     SetWindowPos(mWindowHandle, nullptr,
         0, 0,       // ignored by using flag SWP_NOMOVE 
-        (clientRect.right - clientRect.left) * scalar, (clientRect.bottom - clientRect.top) * scalar,   // new size
+        static_cast<LONG>((clientRect.right - clientRect.left) * scalar), static_cast<LONG>((clientRect.bottom - clientRect.top) * scalar),   // new size
         SWP_NOMOVE | SWP_NOZORDER);
     mDpi = dpi;
 }
@@ -102,8 +96,8 @@ void WFrame::GetClientSize(uint16_t& width, uint16_t& height) const
 {
     RECT rect;
     GetClientRect(mWindowHandle, &rect);
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
+    width = static_cast<uint16_t>(rect.right - rect.left);
+    height = static_cast<uint16_t>(rect.bottom - rect.top);
 }
 
 void WFrame::Close()
