@@ -84,7 +84,7 @@ struct CameraInfo
     Float2 mClips;  // near / far
 };
 
-struct NeoRenderItem
+struct NeoRenderItem final
 {
     MeshData* mMeshData = nullptr;
     void* mInstanceData = nullptr;    // TODO: Support sub mesh
@@ -93,7 +93,7 @@ struct NeoRenderItem
     bool mIsInstanced = false;
 };
 
-struct NeoRenderBatch
+struct NeoRenderBatch final
 {
     std::unique_ptr<NeoRenderItem[]> mRenderItems{};
     uint32_t mNumRenderItems = 0;
@@ -102,8 +102,6 @@ struct NeoRenderBatch
 
 struct NeoRenderLayer final
 {
-    //FrameBufferRef mFrameBuffer;  // nullptr to force rendering to screen.
-
     CameraInfo mCameraInfo{};
     NeoRenderBatch* mOpaqueBatches = nullptr;
     NeoRenderBatch* mTransparentBatches = nullptr;

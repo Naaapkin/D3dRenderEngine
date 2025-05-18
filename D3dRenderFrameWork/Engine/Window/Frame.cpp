@@ -51,8 +51,8 @@ Frame::Frame() :
 
 Frame::Frame(const String& title, uint16_t width, uint16_t height, bool isFullScreen = false) :
     mTitle(title),
-    mFrameWidth(DEFAULT_FRAME_WIDTH),
-    mFrameHeight(DEFAULT_FRAME_HEIGHT),
+    mFrameWidth(width),
+    mFrameHeight(height),
     mIsFullScreen(isFullScreen),
     mIsClosed(false) { }
 

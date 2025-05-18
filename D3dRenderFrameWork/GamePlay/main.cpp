@@ -41,7 +41,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
 #if defined(DEBUG) or defined(_DEBUG)
     _CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
-    WFrame& frame = dynamic_cast<WFrame&>(*WFrame::CreateFrame(TEXT("Sample Frame"), 1280, 720));
+    WFrame& frame = dynamic_cast<WFrame&>(*WFrame::CreateFrame(TEXT("Sample Frame"), 1920, 1080));
 
     // 初始化渲染器
     Renderer& renderer = Renderer::GetInstance();
@@ -83,7 +83,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     }
 
     // load pre-depth shader
-    if (false)
+    if (true)
 	{
         String path = TEXT("Assets/Shaders/source/NeoPreDepth.hlsl");
 		char* data;
@@ -178,14 +178,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     memcpy(renderItem.mMeshData.mSubMeshes.get(), subMeshes.data(), subMeshes.size() * sizeof(SubMesh));
 
 	RenderList renderList{};
-    renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 0, -5, -10, 1 },
+    renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 3, 3, -2, 1 },
         { 0, 0, 0, 1 },
         { 0, 1, 0, 0 });
     renderList.mCameraConstants.mViewInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mView);
     renderList.mCameraConstants.mViewport = renderer.getResolution();
 
     renderList.mBackGroundColor = { 0.6902f, 0.7686f, 0.8706f, 1.0f };
-    renderList.mCameraConstants.mProjection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1280.0f / 720.0f, 1000.0f, 0.3f);
+    renderList.mCameraConstants.mProjection = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, (float)1920 / (float)1080, 1000.0f, 0.3f);
+    //renderList.mCameraConstants.mProjection = DirectX::XMMatrixOrthographicLH(16, 9, 10.0f, 0.3f);
     renderList.mCameraConstants.mProjectionInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mProjection);
     renderList.mOpaqueList.push_back(renderItem);
     renderList.mSkyBoxType = SkyboxType::SKYBOX_PROCEDURAL;
@@ -197,7 +198,7 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     renderQueue.mDepthStencil = DepthStencilRef::NullRef();
     renderQueue.mNumOverlays = 0;
     renderQueue.mSkyboxMaterial = matInsSkybox.get();
-    renderQueue.mSkyboxType = SkyboxType::NONE;
+    renderQueue.mSkyboxType = SkyboxType::SKYBOX_PROCEDURAL;
     renderQueue.mBackGroundColor = { 0.6902f, 0.7686f, 0.8706f, 1 };
     renderQueue.mStencilValue = 0;
 
@@ -206,8 +207,8 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
     cameraInfo.mClips = { 0.3f, 1000.0f };
     cameraInfo.mScissorRect = Rect{ 0, 0, static_cast<int32_t>(resolution.x), static_cast<int32_t>(resolution.y) };
     cameraInfo.mViewport = Viewport{ resolution.x, resolution.y, 0, 1 };
-    cameraInfo.mProj = DirectX::XMMatrixPerspectiveFovLH(DirectX::XM_PIDIV4, 1280.0f / 720.0f, 1000.0f, 0.3f);
-    cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 0, 5, -20, 1 },
+    cameraInfo.mProj = DirectX::XMMatrixPerspectiveFovLH(1.04719698, 1.77777803, 1000.0f, 0.3f);
+    cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 0, 4, -40, 1 },
         { 0, 0, 0, 1 },
         { 0, 1, 0, 0 });
 
@@ -269,12 +270,15 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         lightConstants.mMainLightDir.y = -std::cos(elapsedTime / 4);
         renderer.setLightConstants(lightConstants);
 
-#ifdef ENABLE_LEGACY_RENDER_LOOP
-        //renderList.mOpaqueList[0].mModel = DirectX::XMMatrixRotationY(static_cast<float>(elapsedTime * 0.18));
-        //renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
 
-        renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({ 10 * static_cast<float>(std::sin(elapsedTime / 2)), -5, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
-            { 0, 0, 0, 1 },
+#ifdef ENABLE_LEGACY_RENDER_LOOP
+        //renderItem.mModel = DirectX::XMMatrixRotationY(elapsedTime);
+        //renderList.mOpaqueList[0].mModel = DirectX::XMMatrixRotationY(static_cast<float>(elapsedTime * 0.10));
+        renderList.mOpaqueList[0].mModel = DirectX::XMMatrixTranslation(10 * static_cast<float>(std::sin(elapsedTime / 2)), 0, -10 * static_cast<float>(std::cos(elapsedTime / 2)));
+        renderList.mOpaqueList[0].mModelInverse = DirectX::XMMatrixInverse(nullptr, renderItem.mModel);
+
+        renderList.mCameraConstants.mView = DirectX::XMMatrixLookAtLH({0, 0, 0, 1},
+            { 10 * static_cast<float>(std::sin(elapsedTime / 2)), 0, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
             { 0, 1, 0, 0 });
         renderList.mCameraConstants.mViewInverse = DirectX::XMMatrixInverse(nullptr, renderList.mCameraConstants.mView);
 
@@ -283,9 +287,9 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int)
         renderer.appendRenderLists(std::move(renderLists), 1);
         renderer.legacyRender();
 #else
-        //cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 10 * static_cast<float>(std::sin(elapsedTime / 2)), 5, -10 * static_cast<float>(std::cos(elapsedTime / 2)), 1 },
-        //    { 0, 0, 0, 1 },
-        //    { 0, 1, 0, 0 });
+        cameraInfo.mView = DirectX::XMMatrixLookAtLH({ 40 * static_cast<float>(std::sin(elapsedTime / 8)), 4, -40 * static_cast<float>(std::cos(elapsedTime / 8)), 1 },
+            { 0, 0, 0, 1 },
+            { 0, 1, 0, 0 });
         using namespace DirectX;
 
         const int gridSize = 30;

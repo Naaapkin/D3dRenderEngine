@@ -22,7 +22,6 @@ public:
     uint64_t GetSize() const { return mTotalSize; }
     uint64_t GetBlockSize() const { return mBlockSize; }
 
-    // 分配接口：返回 mOffset（内存块起始偏移）
     uint64_t Allocate(uint64_t size) const;
     void ForceFree(uint64_t offset) const;
     bool Free(uint64_t offset) const;
